@@ -1,0 +1,26 @@
+# PLAYLINE 테마와 서버 설정
+[server]
+# 업로드 파일 하나당 최대 크기(MB). playline/analysis.py 의 MAX_FILE_MB 와 같게 유지
+maxUploadSize = 50
+# 로컬 실행 시 브라우저 자동 열기 (클라우드 배포에서는 무시됨)
+headless = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#31594D"
+backgroundColor = "#F5F1E8"
+secondaryBackgroundColor = "#EDE7DA"
+textColor = "#252A29"
+borderColor = "#DDD6C9"
+linkColor = "#31594D"
+showWidgetBorder = true
+baseRadius = "8px"
+buttonRadius = "8px"
+font = "Noto Sans KR:https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap, sans-serif"
+headingFont = "Noto Sans KR, sans-serif"
+codeFont = "monospace"
+baseFontSize = 15
+chartCategoricalColors = ["#31594D", "#CB765D", "#9A9184", "#252A29"]

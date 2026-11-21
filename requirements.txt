@@ -1,0 +1,9 @@
+# PLAYLINE 의존성 (2026-11-19, Windows 11 + Python 3.14.3 에서 설치·실행 확인한 버전)
+streamlit==1.66.1
+librosa==1.0.0
+numpy==2.5.4
+pandas==3.1.0
+altair==6.3.0
+soundfile==0.14.0
+# 기존 audio_analysis.py.py 실행과 tools/compare_legacy.py 비교용
+matplotlib==3.11.2

@@ -1,0 +1,22 @@
+{
+  "about": "PLAYLINE 흐름 체험 데모 목록. 곡명·아티스트는 아래 차트에서 확인했지만, bpm·rms 값은 앱 사용 흐름을 보여주기 위해 임의로 정한 가상값이며 실제 곡을 측정한 값이 아닙니다. 음원이 없으므로 재생할 수 없습니다.",
+  "checked_on": "2026-11-19",
+  "sources": [
+    {"name": "Billboard Hot 100 (차트 날짜 2026-11-21)", "url": "https://ca.billboard.com/charts/hot-100/2026-11-21"},
+    {"name": "Melon TOP100 스냅샷 2026-11-19 12:00 (가이섬 차트 아카이브 경유)", "url": "https://www.xn--o39an51b2re.com/chart/melon/top100"}
+  ],
+  "tracks": [
+    {"id": "demo-01", "title": "Dracula", "artist": "Tame Impala & JENNIE", "category": "댄스·전자", "chart": "Billboard Hot 100 #3", "bpm": 118, "rms": 0.21},
+    {"id": "demo-02", "title": "생각을 멈추다 보면", "artist": "최유리", "category": "인디·잔잔", "chart": "Melon TOP100 #10", "bpm": 74, "rms": 0.09},
+    {"id": "demo-03", "title": "Dead Fresh", "artist": "Lil Baby", "category": "해외 힙합", "chart": "Billboard Hot 100 #25", "bpm": 144, "rms": 0.27},
+    {"id": "demo-04", "title": "삐그덕 (Feat. 아이유)", "artist": "Crush", "category": "국내 R&B", "chart": "Melon TOP100 #15", "bpm": 92, "rms": 0.15},
+    {"id": "demo-05", "title": "With", "artist": "RESCENE (리센느)", "category": "K-pop", "chart": "Melon TOP100 #3", "bpm": 108, "rms": 0.19},
+    {"id": "demo-06", "title": "Stupid Song", "artist": "Olivia Rodrigo", "category": "해외 팝", "chart": "Billboard Hot 100 #5", "bpm": 132, "rms": 0.24},
+    {"id": "demo-07", "title": "퇴사할게여 (Narr. 기안84)", "artist": "소연 (SOYEON)", "category": "국내 힙합", "chart": "Melon TOP100 #7", "bpm": 126, "rms": 0.25},
+    {"id": "demo-08", "title": "사랑하게 될 거야", "artist": "한로로", "category": "인디·잔잔", "chart": "Melon TOP100 #22", "bpm": 82, "rms": 0.12},
+    {"id": "demo-09", "title": "I Just Might", "artist": "Bruno Mars", "category": "해외 R&B", "chart": "Billboard Hot 100 #15", "bpm": 98, "rms": 0.17},
+    {"id": "demo-10", "title": "REDRED", "artist": "CORTIS (코르티스)", "category": "국내 힙합 성향 K-pop", "chart": "Melon TOP100 #17", "bpm": 138, "rms": 0.29},
+    {"id": "demo-11", "title": "체포하겠어", "artist": "아일릿(ILLIT)", "category": "K-pop", "chart": "Melon TOP100 #4", "bpm": 122, "rms": 0.2},
+    {"id": "demo-12", "title": "Midnight Sun", "artist": "Zara Larsson", "category": "댄스·전자", "chart": "Billboard Hot 100 #24", "bpm": 124, "rms": 0.26}
+  ]
+}
