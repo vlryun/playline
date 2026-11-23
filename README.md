@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-브라우저가 열리지 않으면 http://localhost:8501 로 들어가세요. 종료는 터미널에서 `Ctrl + C`.
+브라우저에서 http://localhost:8501 로 들어가세요(자동으로 열리지 않습니다). 종료는 터미널에서 `Ctrl + C`.
 
 확인한 환경: Windows 11, Python 3.14.3, VS Code 1.145, 버전은 `requirements.txt` 참고.
 

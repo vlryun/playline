@@ -2,8 +2,9 @@
 [server]
 # 업로드 파일 하나당 최대 크기(MB). playline/analysis.py 의 MAX_FILE_MB 와 같게 유지
 maxUploadSize = 50
-# 로컬 실행 시 브라우저 자동 열기 (클라우드 배포에서는 무시됨)
-headless = false
+# 서버(Streamlit Cloud)에서 첫 실행 이메일 입력을 기다리며 멈추지 않도록 headless 로 실행.
+# 로컬에서는 브라우저에서 http://localhost:8501 을 직접 연다.
+headless = true
 
 [browser]
 gatherUsageStats = false
