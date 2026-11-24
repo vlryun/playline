@@ -8,5 +8,8 @@ numpy>=1.26
 pandas>=2.2
 altair>=5.4
 soundfile>=0.12.1
+# 음원 파일 속 커버 이미지 읽기·축소
+mutagen>=1.47
+pillow>=10
 # 기존 audio_analysis.py.py 실행과 tools/compare_legacy.py 비교용
 matplotlib>=3.8

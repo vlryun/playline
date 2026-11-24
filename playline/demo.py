@@ -23,12 +23,13 @@ def load_demo(path: Path = DEMO_PATH) -> tuple[dict, list[dict]]:
         tracks.append(demo_track(
             tid=str(t.get("id") or f"demo-{i:02d}"), title=str(t["title"]),
             artist=t.get("artist"), category=t.get("category"), chart=t.get("chart"),
-            bpm=t.get("bpm"), rms=t.get("rms"),
+            bpm=t.get("bpm"), rms=t.get("rms"), cover_url=t.get("cover_url"),
         ))
     return meta, tracks
 
 
-def demo_track(*, tid: str, title: str, artist, category, chart, bpm, rms) -> dict:
+def demo_track(*, tid: str, title: str, artist, category, chart, bpm, rms, cover_url=None) -> dict:
+    from .library import safe_cover_url
     bpm = None if bpm in (None, "") else float(bpm)
     if bpm is not None and bpm <= 0:
         bpm = None
@@ -38,5 +39,5 @@ def demo_track(*, tid: str, title: str, artist, category, chart, bpm, rms) -> di
         "filename": None, "sha256": None, "size_bytes": None, "duration_sec": None,
         "bpm_raw": bpm, "bpm_factor": 1.0, "rms": float(rms),
         "status": "ok" if bpm is not None else "bpm_failed",
-        "bpm_alternatives": [], "is_demo": True,
+        "bpm_alternatives": [], "is_demo": True, "cover_url": safe_cover_url(cover_url),
     }

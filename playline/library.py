@@ -20,7 +20,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LIBRARY_PATH = ROOT / "data" / "library.json"
 AUDIO_DIR = ROOT / "library"
+# 커버 썸네일: data/covers 는 공개 저장소에 포함(재배포 가능한 이미지만), library/covers 는 로컬 전용
+COVER_DIRS = (ROOT / "data" / "covers", AUDIO_DIR / "covers")
 MIME = {".mp3": "audio/mpeg", ".wav": "audio/wav"}
+
+
+def safe_cover_url(url) -> str | None:
+    """Apple 이미지 서버(https://*.mzstatic.com)의 커버 주소만 쓴다."""
+    import re
+    if isinstance(url, str) and re.match(r"^https://is\d+-ssl\.mzstatic\.com/[\w./%-]+$", url):
+        return url
+    return None
 
 
 def load_library(path: Path = LIBRARY_PATH) -> list[dict]:
@@ -53,7 +63,7 @@ def to_track(entry: dict) -> dict:
         "bpm_raw": None if bpm is None else float(bpm), "bpm_factor": 1.0, "rms": float(entry["rms"]),
         "status": "ok" if bpm is not None else "bpm_failed", "category": entry.get("genre") or None,
         "bpm_alternatives": [] if bpm is None else [round(bpm / 2, 1), round(bpm * 2, 1)],
-        "message": None, "source": "library",
+        "message": None, "source": "library", "cover_url": safe_cover_url(entry.get("cover_url")),
     }
 
 
@@ -71,6 +81,25 @@ def audio_files(entries: list[dict], audio_dir: Path = AUDIO_DIR) -> dict[str, d
         if p.is_file() and (e.get("size_bytes") in (None, p.stat().st_size)):
             out[e["sha256"]] = {"filename": fn, "path": str(p), "data": None,
                                 "mime": MIME.get(p.suffix.lower(), "audio/mpeg"), "size": p.stat().st_size}
+    return out
+
+
+def cover_path(sha: str, dirs=COVER_DIRS) -> Path | None:
+    for d in dirs:
+        p = Path(d) / f"{sha[:12]}.jpg"
+        if p.is_file():
+            return p
+    return None
+
+
+def cover_uris(entries: list[dict], dirs=COVER_DIRS) -> dict[str, str]:
+    """sha256 -> 커버 썸네일 data URI (파일이 있는 곡만)."""
+    from .covers import data_uri
+    out = {}
+    for e in entries:
+        p = cover_path(e["sha256"], dirs)
+        if p is not None:
+            out[e["sha256"]] = data_uri(p.read_bytes())
     return out
 
 

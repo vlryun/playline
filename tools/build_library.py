@@ -22,7 +22,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from playline import analysis  # noqa: E402
-from playline.library import AUDIO_DIR, load_library, save_library  # noqa: E402
+from playline import covers  # noqa: E402
+from playline.library import AUDIO_DIR, COVER_DIRS, load_library, save_library  # noqa: E402
 
 # 다운로드 사이트가 파일 이름 끝에 붙이는 꼬리표는 곡명에서 뺀다
 _TAG = re.compile(r"[\s_\-]*(klickaud|y2mate|ytmp3|320kbps|128kbps|official audio|audio)$", re.I)
@@ -63,10 +64,13 @@ def main() -> int:
     ap.add_argument("paths", nargs="+", help="음원 파일 또는 폴더")
     ap.add_argument("--title", action="append", help='"파일이름=곡 제목" (여러 번 가능)')
     ap.add_argument("--artist", action="append", help='"파일이름=아티스트" (여러 번 가능)')
+    ap.add_argument("--cover", action="append",
+                    help='"파일이름=이미지경로" 직접 고른 커버 (data/covers 에 저장되어 공개 사이트에도 보임. 재배포 가능한 이미지만)')
     ap.add_argument("--no-copy", action="store_true", help="library/ 폴더로 음원을 복사하지 않음")
     args = ap.parse_args()
 
-    titles, artists = parse_map(args.title), parse_map(args.artist)
+    titles, artists, cover_map = parse_map(args.title), parse_map(args.artist), parse_map(args.cover)
+    public_covers, local_covers = COVER_DIRS
     entries = {e["sha256"]: e for e in load_library()}
     AUDIO_DIR.mkdir(exist_ok=True)
 
@@ -94,6 +98,21 @@ def main() -> int:
             "analyzer": f"librosa beat_track + rms (sr={analysis.SAMPLE_RATE})",
         }
         entries[res.sha256] = entry
+        name = f"{res.sha256[:12]}.jpg"
+        if key in cover_map:
+            thumb = covers.thumbnail(Path(cover_map[key]).read_bytes())
+            if thumb:
+                public_covers.mkdir(parents=True, exist_ok=True)
+                (public_covers / name).write_bytes(thumb)
+                print("  커버: 직접 지정한 이미지 (공개)")
+            else:
+                print(f"  [커버 건너뜀] 이미지를 읽을 수 없음: {cover_map[key]}")
+        else:
+            thumb = covers.thumbnail(covers.extract_cover(f.read_bytes()))
+            if thumb:
+                local_covers.mkdir(parents=True, exist_ok=True)
+                (local_covers / name).write_bytes(thumb)
+                print("  커버: 파일에 들어 있던 이미지 (로컬 전용)")
         if not args.no_copy:
             dst = AUDIO_DIR / f.name
             if f.resolve() != dst.resolve():

@@ -30,6 +30,13 @@ VIOLET = "#A98BFF"
 AMBER = "#FFC46B"
 MINT = "#9DFFB0"
 HOLO = f"{CYAN}, {VIOLET}, {PINK}, {AMBER}, {MINT}, {CYAN}"
+# 팝아트 콜라주 포인트 (하프톤 점·스티커 테두리·별 반짝임)
+POP_RED = "#FF4D5E"
+POP_CREAM = "#FFF1B8"
+COBALT = "#2F5BFF"
+SKY = "#7FD3DC"
+SPARKLE = "polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%)"
+BURST = ("polygon(50% 0%, 58% 30%, 85% 8%, 70% 38%, 100% 35%, 74% 52%, 98% 72%, 66% 64%, 72% 96%, 52% 70%, 34% 98%, 36% 66%, 4% 78%, 28% 54%, 0% 32%, 32% 38%, 18% 6%, 44% 28%)")
 # 이전 이름 호환
 GREEN, TERRA, CREAM = CYAN, PINK, BG
 
@@ -54,27 +61,44 @@ def css() -> str:
     radial-gradient(520px 420px at 96% 4%, rgba(255,122,217,.14), transparent 70%),
     radial-gradient(700px 500px at 70% 110%, rgba(169,139,255,.12), transparent 70%); }}
 
-.pl-hero {{ display:flex; align-items:center; gap:22px; padding:8px 0 4px; position:relative; z-index:1; }}
+.pl-hero {{ display:flex; align-items:center; gap:26px; padding:10px 0 6px; position:relative; z-index:1; }}
+.pl-hero-art {{ position:relative; width:150px; height:150px; flex:none; }}
+.pl-hero-art .dots {{ position:absolute; inset:8px; border-radius:50%;
+  background: radial-gradient(circle, {COBALT} 1.7px, transparent 2px) 0 0/9px 9px;
+  -webkit-mask: radial-gradient(circle, #000 55%, transparent 72%); mask: radial-gradient(circle, #000 55%, transparent 72%);
+  opacity:.9; }}
+.pl-hero-art .burst {{ position:absolute; inset:-4px; clip-path:{BURST};
+  background: linear-gradient(140deg, {POP_RED}, #FF8A3D 60%, {AMBER}); opacity:.92;
+  animation: pl-pulse 6s ease-in-out infinite; }}
+@keyframes pl-pulse {{ 0%,100% {{ transform: rotate(-6deg) scale(.96); }} 50% {{ transform: rotate(4deg) scale(1.02); }} }}
+.pl-hero-art .pl-hero-disc {{ position:absolute; left:23px; top:23px; }}
+.pl-spark {{ position:absolute; clip-path:{SPARKLE}; animation: pl-twinkle 3.2s ease-in-out infinite; }}
+.pl-spark.s1 {{ width:26px; height:26px; right:-6px; top:4px; background:{POP_CREAM}; }}
+.pl-spark.s2 {{ width:16px; height:16px; left:-4px; bottom:18px; background:{PINK}; animation-delay:1.1s; }}
+.pl-spark.s3 {{ width:12px; height:12px; right:14px; bottom:-2px; background:{CYAN}; animation-delay:2s; }}
+@keyframes pl-twinkle {{ 0%,100% {{ transform: scale(.7) rotate(0deg); opacity:.7; }} 50% {{ transform: scale(1.15) rotate(20deg); opacity:1; }} }}
 .pl-hero-disc {{ width:104px; height:104px; flex:none; border-radius:50%; position:relative;
   background:
     radial-gradient(circle at 50% 50%, {BG} 0 11%, rgba(255,255,255,.55) 11.5% 12.5%, transparent 13% 100%),
     radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(255,255,255,.18) 30.5% 31%, transparent 31.5% 100%),
     repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.07) 0 1px, transparent 1px 3px),
     conic-gradient(from 210deg, {HOLO});
-  box-shadow: 0 0 0 1px rgba(255,255,255,.22), 0 18px 50px -12px rgba(124,247,255,.45), 0 10px 40px -10px rgba(255,122,217,.4);
+  box-shadow: 0 0 0 4px {POP_CREAM}, 5px 6px 0 4px {POP_RED}, 0 18px 50px -12px rgba(124,247,255,.45);
   animation: pl-spin 14s linear infinite; }}
 .pl-hero-disc::after {{ content:''; position:absolute; inset:0; border-radius:50%;
   background: linear-gradient(125deg, rgba(255,255,255,.55) 0%, transparent 28%, transparent 62%, rgba(255,255,255,.25) 100%);
   mix-blend-mode: overlay; }}
 @keyframes pl-spin {{ to {{ transform: rotate(360deg); }} }}
 
-.pl-logo {{ font-family:'Bricolage Grotesque','Noto Sans KR',sans-serif; font-weight:800; font-size:56px;
-  letter-spacing:-2px; line-height:.95; color:{INK}; }}
-.pl-slogan {{ font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; letter-spacing:.2px;
-  background: linear-gradient(90deg, {HOLO}); background-size:200% 100%; -webkit-background-clip:text; background-clip:text;
-  color:transparent; animation: pl-sheen 9s ease-in-out infinite alternate; }}
+.pl-logo {{ font-family:'Bricolage Grotesque','Noto Sans KR',sans-serif; font-weight:800; font-size:60px;
+  letter-spacing:-2px; line-height:.95; color:{INK}; text-shadow: 3px 3px 0 {COBALT}, 6px 6px 0 rgba(255,77,94,.55); }}
+.pl-slogan {{ align-self:flex-start; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px;
+  letter-spacing:.2px; color:#16131F; background:{POP_CREAM}; padding:4px 12px 5px; border-radius:6px;
+  transform: rotate(-2.2deg); box-shadow: 3px 3px 0 {POP_RED}; margin:4px 0 2px; }}
+.pl-slogan::after {{ content:''; display:inline-block; width:12px; height:12px; margin-left:8px; vertical-align:-1px;
+  clip-path:{SPARKLE}; background:{COBALT}; }}
 @keyframes pl-sheen {{ from {{ background-position:0% 50%; }} to {{ background-position:100% 50%; }} }}
-@media (prefers-reduced-motion: reduce) {{ .pl-hero-disc, .pl-slogan {{ animation:none; }} }}
+@media (prefers-reduced-motion: reduce) {{ .pl-hero-disc, .pl-slogan, .pl-spark, .pl-hero-art .burst {{ animation:none; }} }}
 .pl-intro {{ color:{MUTED}; font-size:15px; margin:4px 0 0; max-width:560px; }}
 .pl-hero-text {{ display:flex; flex-direction:column; gap:4px; min-width:0; }}
 .pl-eyebrow {{ font-size:11.5px; letter-spacing:2.4px; text-transform:uppercase; color:{MUTED}; font-weight:600; }}
@@ -114,6 +138,17 @@ def css() -> str:
   background: linear-gradient(130deg, rgba(255,255,255,.5), transparent 35%, transparent 65%, rgba(255,255,255,.2));
   mix-blend-mode: overlay; }}
 .pl-track:hover .pl-cover {{ transform: rotate(160deg); }}
+/* 커버 이미지가 있는 곡: 정사각 커버 뒤로 홀로그램 디스크가 살짝 보이는 CD 케이스 느낌 */
+.pl-art {{ width:58px; height:46px; flex:none; position:relative; }}
+.pl-art-img {{ position:absolute; left:0; top:0; width:46px; height:46px; border-radius:8px;
+  background-size:cover; background-position:center; z-index:1;
+  box-shadow: 0 0 0 2px {POP_CREAM}, 3px 3px 0 2px {POP_RED}; }}
+.pl-art-disc {{ position:absolute; left:14px; top:2px; width:42px; height:42px; border-radius:50%;
+  background:
+    radial-gradient(circle, {BG} 0 13%, rgba(255,255,255,.6) 13.5% 15%, transparent 15.5% 100%),
+    conic-gradient(from var(--a, 0deg), {HOLO});
+  transition: transform .6s cubic-bezier(.2,.7,.2,1); }}
+.pl-track:hover .pl-art-disc {{ transform: translateX(8px) rotate(140deg); }}
 .pl-meta {{ min-width:0; flex:1; }}
 .pl-title {{ font-weight:700; font-size:15.5px; color:{INK}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
 .pl-sub {{ font-size:12.5px; color:{MUTED}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; }}
@@ -146,16 +181,23 @@ def css() -> str:
     radial-gradient(circle, {BG} 0 12%, transparent 12.5% 100%),
     repeating-radial-gradient(circle, rgba(255,255,255,.07) 0 1px, transparent 1px 3px),
     conic-gradient(from 120deg, {HOLO}); opacity:.35; }}
+.pl-empty::after {{ content:''; position:absolute; left:-30px; bottom:-40px; width:180px; height:120px; pointer-events:none;
+  background: radial-gradient(circle, rgba(47,91,255,.7) 1.5px, transparent 1.8px) 0 0/9px 9px;
+  -webkit-mask: radial-gradient(ellipse, #000 30%, transparent 70%); mask: radial-gradient(ellipse, #000 30%, transparent 70%); }}
 .pl-empty h3 {{ margin:0 0 8px; font-size:22px; color:{INK}; position:relative; }}
 .pl-empty p, .pl-empty ol {{ position:relative; }}
 .pl-empty ol {{ margin:10px 0 0 18px; padding:0; color:{MUTED}; font-size:14px; line-height:1.9; }}
 .pl-empty ol b {{ color:{INK}; }}
 .pl-section {{ display:flex; align-items:center; gap:12px; margin:8px 0 4px; }}
-.pl-section h4 {{ margin:0; font-size:18px; font-weight:700; color:{INK}; letter-spacing:-.2px; }}
+.pl-section h4 {{ margin:0; font-size:18px; font-weight:800; color:{INK}; letter-spacing:-.2px; display:flex; align-items:center; gap:8px; }}
+.pl-section h4::before {{ content:''; width:15px; height:15px; clip-path:{SPARKLE}; background:{POP_CREAM}; flex:none; }}
 .pl-section .ln {{ flex:1; height:1px; background: linear-gradient(90deg, rgba(124,247,255,.5), rgba(255,122,217,.25), transparent); }}
 .pl-note {{ font-size:12.5px; color:{MUTED}; line-height:1.6; }}
 
 /* st.container(key=...) 가 붙이는 공식 클래스 — 투명 플라스틱 케이스 느낌 */
+.st-key-panel::before {{ content:''; position:absolute; right:0; top:0; width:140px; height:110px; pointer-events:none;
+  border-top-right-radius:18px; background: radial-gradient(circle, rgba(47,91,255,.75) 1.4px, transparent 1.7px) 0 0/8px 8px;
+  -webkit-mask: linear-gradient(225deg, #000, transparent 65%); mask: linear-gradient(225deg, #000, transparent 65%); opacity:.55; }}
 .st-key-panel {{ position:relative; border-radius:18px; padding:16px 15px 10px;
   background: linear-gradient(170deg, rgba(255,255,255,.065), rgba(255,255,255,.015) 40%, rgba(255,255,255,.03));
   border:1px solid rgba(255,255,255,.14);
@@ -176,10 +218,15 @@ def css() -> str:
 @media (max-width: 640px) {{
   .pl-mobile-only {{ display:block; }}
   .pl-hero {{ gap:14px; }}
+  .pl-hero-art {{ width:92px; height:92px; }}
   .pl-hero-disc {{ width:64px; height:64px; }}
+  .pl-hero-art .pl-hero-disc {{ left:14px; top:14px; }}
+  .pl-spark.s1 {{ width:18px; height:18px; }}
   .pl-logo {{ font-size:38px; letter-spacing:-1.2px; }}
   .pl-nums {{ display:none; }}
   .pl-cover {{ width:34px; height:34px; }}
+  .pl-art {{ width:42px; height:34px; }} .pl-art-img {{ width:34px; height:34px; }}
+  .pl-art-disc {{ width:30px; height:30px; left:10px; }}
   .pl-pos {{ width:18px; font-size:16px; }}
   .pl-track {{ gap:9px; }}
 }}
@@ -224,7 +271,10 @@ def logo_svg(size: int = 30) -> str:
 def hero_html() -> str:
     return """
 <div class="pl-hero">
-  <div class="pl-hero-disc" role="img" aria-label="PLAYLINE 디스크 로고"></div>
+  <div class="pl-hero-art" role="img" aria-label="PLAYLINE 디스크 로고">
+    <span class="burst"></span><span class="dots"></span><div class="pl-hero-disc"></div>
+    <span class="pl-spark s1"></span><span class="pl-spark s2"></span><span class="pl-spark s3"></span>
+  </div>
   <div class="pl-hero-text">
     <div class="pl-eyebrow">Playlist flow studio</div>
     <div class="pl-logo">PLAYLINE</div>
@@ -263,10 +313,13 @@ def mode_card_html(mode: str, label: str, desc: str, selected: bool) -> str:
             f'<div><b>{esc(label)}</b>{f"<p>{esc(desc)}</p>" if desc else ""}</div></div>')
 
 
-def cover_html(track: dict) -> str:
-    """곡마다 각도가 다른 홀로그램 디스크 타일 (앨범 이미지가 아닌 장식)."""
+def cover_html(track: dict, image: str | None = None) -> str:
+    """곡 커버. 음원 파일에 커버 이미지가 있으면 그 이미지를, 없으면 곡마다 각도가 다른 홀로그램 디스크를 그린다."""
     key = track.get("sha256") or track["id"]
     angle = int(hashlib.md5(key.encode("utf-8")).hexdigest(), 16) % 360
+    if image:
+        return (f'<div class="pl-art" style="--a:{angle}deg" aria-hidden="true">'
+                f'<span class="pl-art-disc"></span><span class="pl-art-img" style="background-image:url(\'{image}\')"></span></div>')
     return f'<div class="pl-cover" style="--a:{angle}deg" aria-hidden="true"></div>'
 
 
@@ -278,7 +331,7 @@ def fmt_duration(sec) -> str:
 
 
 def track_row_html(pos: int, track: dict, bpm, score: float, *, demo: bool, locked: bool,
-                   orig_pos: int | None, has_audio: bool) -> str:
+                   orig_pos: int | None, has_audio: bool, cover: str | None = None) -> str:
     tags = ""
     if locked:
         tags += '<span class="pl-tag lock">자리 고정</span>'
@@ -312,7 +365,7 @@ def track_row_html(pos: int, track: dict, bpm, score: float, *, demo: bool, lock
     return f"""
 <div class="pl-track">
   <div class="pl-pos">{pos}</div>
-  {cover_html(track)}
+  {cover_html(track, cover)}
   <div class="pl-meta">
     <div class="pl-title" title="{esc(track.get('title'))}">{esc(track.get('title'))}{tags}</div>
     <div class="pl-sub">{sub}</div>

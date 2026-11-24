@@ -12,7 +12,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from playline import analysis, arrange as ar, library, storage, ui
+from playline import analysis, arrange as ar, covers, library, storage, ui
 from playline.demo import demo_track, load_demo
 
 st.set_page_config(page_title="PLAYLINE · 플레이라인", page_icon="〰", layout="wide",
@@ -35,6 +35,7 @@ DEFAULTS = {
     "preview_id": None,
     "flash": [],
     "ws_seq": 0,
+    "covers": {},               # sha256 -> 업로드 음원에서 꺼낸 커버 썸네일(data URI)
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -50,6 +51,21 @@ def library_entries() -> list[dict]:
 
 LIB = library_entries()
 LIB_AUDIO = library.audio_files(LIB)   # 서버에 음원 파일이 있는 라이브러리 곡 (sha256 -> 정보)
+
+
+@st.cache_data(show_spinner=False)
+def library_covers() -> dict[str, str]:
+    return library.cover_uris(LIB)
+
+
+def cover_for(track: dict) -> str | None:
+    """커버 우선순위: 확인된 공식 커버 주소 → 음원 파일 속 커버 → 없음(디스크 그림)."""
+    if track.get("cover_url"):
+        return track["cover_url"]
+    sha = track.get("sha256")
+    if not sha:
+        return None
+    return S.covers.get(sha) or library_covers().get(sha)
 
 
 # ───────────────────────── 상태 도우미 ─────────────────────────
@@ -186,6 +202,10 @@ def run_analysis(files):
             progress.progress((i - 1) / len(files), text=f"{i}/{len(files)} · 분석 중: {f.name}")
             res = analysis.analyze_bytes(f.getvalue(), f.name)
             S.analysis_runs += 1
+            if sha not in S.covers:
+                uri = covers.cover_uri_from_audio(f.getvalue())
+                if uri:
+                    S.covers[sha] = uri
             if res.status != "error":  # 오류는 다시 시도할 수 있도록 캐시하지 않음
                 S.analysis_cache[sha] = res
             progress.progress(i / len(files), text=f"{i}/{len(files)} · 완료: {f.name}")
@@ -601,7 +621,8 @@ with main:
         with st.container(key=f"trackrow_{i}", horizontal=True, vertical_alignment="center", gap="small",
                           wrap=False):
             st.html(ui.track_row_html(i + 1, t, raw[tid]["bpm"], raw[tid]["score"], demo=demo,
-                                      locked=i in locks, orig_pos=orig_pos[tid], has_audio=has_audio(tid)),
+                                      locked=i in locks, orig_pos=orig_pos[tid], has_audio=has_audio(tid),
+                                      cover=cover_for(t)),
                     width="stretch")
             playable = has_audio(tid)
             st.button("재생" if playable else "",

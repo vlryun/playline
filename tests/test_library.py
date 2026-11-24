@@ -62,3 +62,18 @@ class RealLibraryFileTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CoverUrlTest(unittest.TestCase):
+    def test_only_apple_artwork_urls(self):
+        ok = "https://is1-ssl.mzstatic.com/image/thumb/Music/v4/aa/bb/x.jpg/600x600bb.jpg"
+        self.assertEqual(library.safe_cover_url(ok), ok)
+        for bad in ("http://is1-ssl.mzstatic.com/a.jpg", "https://evil.example.com/a.jpg",
+                    "javascript:alert(1)", "https://is1-ssl.mzstatic.com/a.jpg');x", None, 3):
+            self.assertIsNone(library.safe_cover_url(bad))
+
+    def test_demo_tracks_have_verified_covers(self):
+        from playline.demo import load_demo
+        _, tracks = load_demo()
+        with_cover = [t for t in tracks if t["cover_url"]]
+        self.assertGreater(len(with_cover), 0)

@@ -70,7 +70,7 @@ def to_csv(order: list[str], tracks: dict[str, dict], scores: dict | None = None
 
 
 _TRACK_KEYS = ("id", "title", "artist", "filename", "sha256", "size_bytes", "duration_sec",
-               "bpm_raw", "bpm_factor", "rms", "status", "category", "bpm_alternatives", "source")
+               "bpm_raw", "bpm_factor", "rms", "status", "category", "bpm_alternatives", "source", "cover_url")
 
 
 def to_json(*, tracks: dict[str, dict], original: list[str], suggested: list[str] | None,
@@ -183,6 +183,8 @@ def parse_project(raw: bytes) -> tuple[dict | None, list[str]]:
             clean[tid]["bpm_alternatives"] = []
         if clean[tid].get("source") != "library":
             clean[tid]["source"] = None
+        from .library import safe_cover_url
+        clean[tid]["cover_url"] = safe_cover_url(clean[tid].get("cover_url"))
 
     if errs:
         return None, errs

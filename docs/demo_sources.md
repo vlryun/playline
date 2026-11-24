@@ -34,3 +34,9 @@
 - Melon 장르별(랩/힙합) 차트는 이번 검색으로 최신 자료를 확인하지 못해, 종합 TOP100 안에서 힙합·R&B 성향 곡을 골랐습니다.
 - 음원, 미리듣기 URL, 앨범 이미지는 쓰지 않았습니다. 커버는 곡명 첫 글자로 만든 색상 타일입니다.
 - 목록을 바꾸려면 `data/demo_tracks.json`을 편집하거나, 앱의 '데모 목록 편집'에서 이 세션에만 바꿀 수 있습니다.
+
+## 앨범 커버 (2026-11-24 추가)
+
+- 곡별 커버는 `tools/fetch_covers.py`로 **Apple iTunes Search API**에서 찾은 공식 커버 이미지 주소(mzstatic.com)를 그대로 표시합니다. 이미지 파일을 저장소에 복사하지 않습니다.
+- 곡명만으로 고르지 않고 아티스트가 일치하는 결과만 씁니다. 한국어 제목은 Apple 카탈로그의 공식 영문 제목을 `title_alias`로 함께 검색합니다(예: 체포하겠어 → You're Under Arrest, 생각을 멈추다 보면 → When I stop thinking, 삐그덕 → seesaw, 퇴사할게여 → I'm gonna TOESA, 사랑하게 될 거야 → Landing in Love).
+- 일치한 곡·앨범·링크는 `data/demo_tracks.json`의 `cover_match`에 남깁니다. 찾지 못한 곡은 디스크 그림으로 표시합니다.

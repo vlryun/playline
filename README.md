@@ -81,6 +81,11 @@ python -X utf8 tools\build_library.py "C:\Users\me\Music\song.mp3" --artist "son
 
 곡명은 파일 이름에서 만들며(다운로드 사이트 꼬리표 제거), `--title "파일이름=곡명"`으로 바꿀 수 있습니다. 추가 후 `data/library.json`을 커밋·푸시하면 공개 사이트에 반영됩니다.
 
+## 앨범 커버
+
+- 라이브러리·데모 곡: `python -X utf8 toolsetch_covers.py` 가 Apple iTunes Search API에서 공식 커버 주소를 찾아 JSON에 기록합니다(이미지 파일은 저장소에 넣지 않음). 아티스트가 일치해야 하고, 아티스트를 모르는 곡은 파일 속 커버 그림까지 같아야 확정합니다. 확정하지 못하면 디스크 그림으로 둡니다.
+- 직접 올린 곡: 음원 파일 안에 커버 이미지가 들어 있으면 그 그림을 보여 줍니다(인터넷 검색 안 함).
+
 ## 자동 배열 방법
 
 1. 곡 목록 안에서 BPM과 평균 RMS를 각각 최소-최대 정규화(값이 모두 같으면 0.5)
@@ -101,6 +106,7 @@ playline/
   storage.py            CSV/JSON 저장·불러오기·검증·해시 연결
   demo.py               데모 데이터 로드
   library.py            음원 라이브러리 로드·검색
+  covers.py             음원 파일 속 커버 이미지 읽기
   ui.py                 화면 스타일·HTML 조각·비교 그래프
 data/demo_tracks.json   데모 곡 목록 (가상값)
 data/library.json       라이브러리 곡 분석값 (실제값)
@@ -110,6 +116,7 @@ tests/                  단위 테스트·화면 흐름 테스트
 tools/compare_legacy.py 기존 코드와 분석 결과 비교
 tools/make_test_audio.py 예외 상황 확인용 합성 음원 생성
 tools/build_library.py  음원을 분석해 라이브러리에 추가
+tools/fetch_covers.py   공식 앨범 커버 주소 찾기
 audio_analysis.py.py    기존 분석 코드 (수정하지 않고 보존)
 .streamlit/config.toml  테마·업로드 크기 설정
 ```

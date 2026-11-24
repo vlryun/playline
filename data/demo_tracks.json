@@ -2,21 +2,250 @@
   "about": "PLAYLINE 흐름 체험 데모 목록. 곡명·아티스트는 아래 차트에서 확인했지만, bpm·rms 값은 앱 사용 흐름을 보여주기 위해 임의로 정한 가상값이며 실제 곡을 측정한 값이 아닙니다. 음원이 없으므로 재생할 수 없습니다.",
   "checked_on": "2026-11-19",
   "sources": [
-    {"name": "Billboard Hot 100 (차트 날짜 2026-11-21)", "url": "https://ca.billboard.com/charts/hot-100/2026-11-21"},
-    {"name": "Melon TOP100 스냅샷 2026-11-19 12:00 (가이섬 차트 아카이브 경유)", "url": "https://www.xn--o39an51b2re.com/chart/melon/top100"}
+    {
+      "name": "Billboard Hot 100 (차트 날짜 2026-11-21)",
+      "url": "https://ca.billboard.com/charts/hot-100/2026-11-21"
+    },
+    {
+      "name": "Melon TOP100 스냅샷 2026-11-19 12:00 (가이섬 차트 아카이브 경유)",
+      "url": "https://www.xn--o39an51b2re.com/chart/melon/top100"
+    }
   ],
   "tracks": [
-    {"id": "demo-01", "title": "Dracula", "artist": "Tame Impala & JENNIE", "category": "댄스·전자", "chart": "Billboard Hot 100 #3", "bpm": 118, "rms": 0.21},
-    {"id": "demo-02", "title": "생각을 멈추다 보면", "artist": "최유리", "category": "인디·잔잔", "chart": "Melon TOP100 #10", "bpm": 74, "rms": 0.09},
-    {"id": "demo-03", "title": "Dead Fresh", "artist": "Lil Baby", "category": "해외 힙합", "chart": "Billboard Hot 100 #25", "bpm": 144, "rms": 0.27},
-    {"id": "demo-04", "title": "삐그덕 (Feat. 아이유)", "artist": "Crush", "category": "국내 R&B", "chart": "Melon TOP100 #15", "bpm": 92, "rms": 0.15},
-    {"id": "demo-05", "title": "With", "artist": "RESCENE (리센느)", "category": "K-pop", "chart": "Melon TOP100 #3", "bpm": 108, "rms": 0.19},
-    {"id": "demo-06", "title": "Stupid Song", "artist": "Olivia Rodrigo", "category": "해외 팝", "chart": "Billboard Hot 100 #5", "bpm": 132, "rms": 0.24},
-    {"id": "demo-07", "title": "퇴사할게여 (Narr. 기안84)", "artist": "소연 (SOYEON)", "category": "국내 힙합", "chart": "Melon TOP100 #7", "bpm": 126, "rms": 0.25},
-    {"id": "demo-08", "title": "사랑하게 될 거야", "artist": "한로로", "category": "인디·잔잔", "chart": "Melon TOP100 #22", "bpm": 82, "rms": 0.12},
-    {"id": "demo-09", "title": "I Just Might", "artist": "Bruno Mars", "category": "해외 R&B", "chart": "Billboard Hot 100 #15", "bpm": 98, "rms": 0.17},
-    {"id": "demo-10", "title": "REDRED", "artist": "CORTIS (코르티스)", "category": "국내 힙합 성향 K-pop", "chart": "Melon TOP100 #17", "bpm": 138, "rms": 0.29},
-    {"id": "demo-11", "title": "체포하겠어", "artist": "아일릿(ILLIT)", "category": "K-pop", "chart": "Melon TOP100 #4", "bpm": 122, "rms": 0.2},
-    {"id": "demo-12", "title": "Midnight Sun", "artist": "Zara Larsson", "category": "댄스·전자", "chart": "Billboard Hot 100 #24", "bpm": 124, "rms": 0.26}
+    {
+      "id": "demo-01",
+      "title": "Dracula",
+      "artist": "Tame Impala & JENNIE",
+      "category": "댄스·전자",
+      "chart": "Billboard Hot 100 #3",
+      "bpm": 118,
+      "rms": 0.21,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/36/be/b4/36beb41f-c644-55cb-9fbb-bf0622a66653/196873644783.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "Dracula",
+        "artist": "Tame Impala",
+        "album": "Dracula - Single",
+        "url": "https://music.apple.com/us/album/dracula/1842444456?i=1842444457&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-02",
+      "title": "생각을 멈추다 보면",
+      "artist": "최유리",
+      "category": "인디·잔잔",
+      "chart": "Melon TOP100 #10",
+      "bpm": 74,
+      "rms": 0.09,
+      "title_alias": "When I stop thinking",
+      "artist_alias": "Choi Yu Ree",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/32/97/bc/3297bccf-d292-f9de-04ef-58d346cde6cf/191953315522.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "When I stop thinking",
+        "artist": "Choi Yu Ree",
+        "album": "When I stop thinking - EP",
+        "url": "https://music.apple.com/us/album/when-i-stop-thinking/1717383448?i=1717383449&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-03",
+      "title": "Dead Fresh",
+      "artist": "Lil Baby",
+      "category": "해외 힙합",
+      "chart": "Billboard Hot 100 #25",
+      "bpm": 144,
+      "rms": 0.27,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f4/00/dd/f400ddda-01b6-52ee-1888-477ffee6ed67/26UMGIM86003.rgb.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "Dead Fresh",
+        "artist": "Lil Baby",
+        "album": "Dead Fresh - Single",
+        "url": "https://music.apple.com/us/album/dead-fresh/6791695694?i=6791695695&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-04",
+      "title": "삐그덕 (Feat. 아이유)",
+      "artist": "Crush",
+      "category": "국내 R&B",
+      "chart": "Melon TOP100 #15",
+      "bpm": 92,
+      "rms": 0.15,
+      "title_alias": "seesaw",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/88/be/eb/88beebd5-76f0-1845-91ad-6f80764488af/191953587608.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "seesaw (feat. IU)",
+        "artist": "Crush",
+        "album": "seesaw (feat. IU) - Single",
+        "url": "https://music.apple.com/us/album/seesaw-feat-iu/6822679187?i=6822679368&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-05",
+      "title": "With",
+      "artist": "RESCENE (리센느)",
+      "category": "K-pop",
+      "chart": "Melon TOP100 #3",
+      "bpm": 108,
+      "rms": 0.19,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b3/df/b7/b3dfb7ba-715f-1f5a-5528-eb82acd5225a/888272191394_Cover.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "With",
+        "artist": "RESCENE",
+        "album": "PULSE - EP",
+        "url": "https://music.apple.com/us/album/with/6828335122?i=6828335406&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-06",
+      "title": "Stupid Song",
+      "artist": "Olivia Rodrigo",
+      "category": "해외 팝",
+      "chart": "Billboard Hot 100 #5",
+      "bpm": 132,
+      "rms": 0.24,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1d/1b/f9/1d1bf9b1-44c6-9a6c-6ffb-c158488c06ce/26UMGIM39303.rgb.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "stupid song",
+        "artist": "Olivia Rodrigo",
+        "album": "you seem pretty sad for a girl so in love",
+        "url": "https://music.apple.com/us/album/stupid-song/1889992111?i=1889992115&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-07",
+      "title": "퇴사할게여 (Narr. 기안84)",
+      "artist": "소연 (SOYEON)",
+      "category": "국내 힙합",
+      "chart": "Melon TOP100 #7",
+      "bpm": 126,
+      "rms": 0.25,
+      "title_alias": "I'm gonna TOESA",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ea/cf/ad/eacfadf8-14ab-07e4-d69b-b4c0c3897235/8804775411847.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "I’m gonna TOESA (feat. Kian84)",
+        "artist": "SOYEON",
+        "album": "What a Wonderful Life",
+        "url": "https://music.apple.com/us/album/im-gonna-toesa-feat-kian84/6804744597?i=6804744599&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-08",
+      "title": "사랑하게 될 거야",
+      "artist": "한로로",
+      "category": "인디·잔잔",
+      "chart": "Melon TOP100 #22",
+      "bpm": 82,
+      "rms": 0.12,
+      "title_alias": "Landing in Love",
+      "artist_alias": "HANRORO",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c2/ef/87/c2ef8779-f3bb-5a1c-ef6f-c27185e62446/8809936067307.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "Landing in Love",
+        "artist": "HANRORO",
+        "album": "Take-off - EP",
+        "url": "https://music.apple.com/us/album/landing-in-love/1703196819?i=1703196825&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-09",
+      "title": "I Just Might",
+      "artist": "Bruno Mars",
+      "category": "해외 R&B",
+      "chart": "Billboard Hot 100 #15",
+      "bpm": 98,
+      "rms": 0.17,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ed/46/bf/ed46bf4e-7cb9-965a-54f3-03059977fe6c/075679589293.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "I Just Might",
+        "artist": "Bruno Mars",
+        "album": "The Romantic",
+        "url": "https://music.apple.com/us/album/i-just-might/1866732792?i=1866732800&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-10",
+      "title": "REDRED",
+      "artist": "CORTIS (코르티스)",
+      "category": "국내 힙합 성향 K-pop",
+      "chart": "Melon TOP100 #17",
+      "bpm": 138,
+      "rms": 0.29,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9b/5f/47/9b5f4711-dc78-2dea-6721-d06709ea5121/198704992810_Cover.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "REDRED",
+        "artist": "CORTIS",
+        "album": "GREENGREEN - EP",
+        "url": "https://music.apple.com/us/album/redred/1887671065?i=1887671067&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-11",
+      "title": "체포하겠어",
+      "artist": "아일릿(ILLIT)",
+      "category": "K-pop",
+      "chart": "Melon TOP100 #4",
+      "bpm": 122,
+      "rms": 0.2,
+      "title_alias": "You're Under Arrest",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b9/40/bf/b940bf84-9f10-15e6-423f-3cdca2bbdd21/823375411949_Cover.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "You’re Under Arrest",
+        "artist": "ILLIT",
+        "album": "BREAK EVEN - EP",
+        "url": "https://music.apple.com/us/album/youre-under-arrest/6818511623?i=6818511627&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    },
+    {
+      "id": "demo-12",
+      "title": "Midnight Sun",
+      "artist": "Zara Larsson",
+      "category": "댄스·전자",
+      "chart": "Billboard Hot 100 #24",
+      "bpm": 124,
+      "rms": 0.26,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fb/1d/2d/fb1d2d1c-0f79-53ad-ab9b-ac20918b5856/196873177199.jpg/600x600bb.jpg",
+      "cover_source": "Apple iTunes Search API",
+      "cover_match": {
+        "track": "Midnight Sun",
+        "artist": "Zara Larsson",
+        "album": "Midnight Sun",
+        "url": "https://music.apple.com/us/album/midnight-sun/1817499239?i=1817499251&uo=4",
+        "rule": "아티스트 일치",
+        "checked_on": "2026-11-24"
+      }
+    }
   ]
 }
