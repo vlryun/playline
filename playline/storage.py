@@ -17,7 +17,7 @@ import math
 import re
 from datetime import datetime, timezone
 
-from .arrange import MODES
+from .arrange import CUSTOM, MODES, clean_curve
 
 SCHEMA_VERSION = 2   # 2: 곡 출처(source)·측정 범위(analysis_scope) 추가. 1 파일도 읽음
 APP_ID = "PLAYLINE"
@@ -152,6 +152,10 @@ def validate_settings(s, ids: set[str]) -> list[str]:
             errs.append(f"고정 곡({key})이 곡 목록에 없습니다.")
     if s.get("pin_first") is not None and s.get("pin_first") == s.get("pin_last"):
         errs.append("같은 곡이 첫 곡과 마지막 곡으로 동시에 고정되어 있습니다.")
+    if s.get("curve") is not None and clean_curve(s.get("curve")) is None:
+        errs.append("직접 그린 흐름(settings.curve)이 올바르지 않습니다.")
+    if s.get("mode") == CUSTOM and s.get("curve") is None:
+        errs.append("'나만의 흐름'에는 직접 그린 흐름(settings.curve)이 필요합니다.")
     return errs
 
 

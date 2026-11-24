@@ -86,8 +86,9 @@ class AppFlowTest(unittest.TestCase):
         self.assertNotIn(drop, ws["current"])
 
     def test_all_nine_flows_keep_pins(self):
-        from playline.arrange import MODES
-        self.assertEqual(list(MODES), ["rise", "fall", "arc", "valley", "wave", "early", "finale", "plateau", "workout"])
+        from playline.arrange import MODES, PRESET_MODES
+        self.assertEqual(PRESET_MODES, ["rise", "fall", "arc", "valley", "wave", "early", "finale", "plateau", "workout"])
+        self.assertEqual(list(MODES), PRESET_MODES + ["custom"])   # 10번째 선택지
         at = fresh()
         at.button(key="hero_demo").click().run()
         ws = at.session_state.ws
@@ -138,6 +139,57 @@ class AppFlowTest(unittest.TestCase):
         text = summary(at)
         self.assertIn("‘파도처럼’ 흐름으로 정렬했어요", text)
         self.assertIn("지금 순서(직접 바꿈)", text)
+
+    def test_why_here_panel_uses_real_values(self):
+        import html as _h
+        from playline import arrange as ar, storage
+        at = fresh()
+        at.button(key="hero_demo").click().run()
+        ws = at.session_state.ws
+        tid = ws["current"][3]
+        at.button(key=f"why_{tid}").click().run()
+        self.assertEqual(len(at.exception), 0, [e.value for e in at.exception])
+        boxes = [_h.unescape(x.proto.body) for x in at.get("html") if 'class="pl-why' in x.proto.body]
+        self.assertEqual(len(boxes), 1)
+        sc = ar.compute_scores([{"id": t, "bpm": storage.effective_bpm(ws["tracks"][t]), "rms": ws["tracks"][t]["rms"]}
+                                for t in ws["original"]], 0.5)
+        lo, hi = ar.score_range(sc)
+        tgt = ar.target_curve(at.session_state.mode, len(ws["current"]), lo, hi)[3]
+        self.assertIn(f"{tgt:.3f}", boxes[0])
+        self.assertIn(f"{sc[tid].score:.3f}", boxes[0])
+        self.assertIn("전체 12곡 중 4번째", boxes[0])
+        # 설정을 바꾸면 예전 설명 대신 안내만
+        at.button(key="mode_btn_wave").click().run()
+        boxes = [_h.unescape(x.proto.body) for x in at.get("html") if 'class="pl-why' in x.proto.body]
+        self.assertIn("설정이 변경됐어요", boxes[0])
+        # 닫기
+        at.button(key=f"why_{tid}").click().run()
+        self.assertFalse([x for x in at.get("html") if 'class="pl-why' in x.proto.body])
+
+    def test_custom_flow_apply_and_stale(self):
+        import html as _h
+        at = fresh()
+        at.button(key="hero_demo").click().run()
+        at.button(key="mode_btn_custom").click().run()
+        self.assertEqual(at.session_state.mode, "custom")
+        curve = [[0, 1], [0.5, 0], [1, 1]]
+        at.session_state.custom_curve = curve
+        at.button(key="curve_apply").click().run()
+        self.assertEqual(len(at.exception), 0, [e.value for e in at.exception])
+        ws = at.session_state.ws
+        self.assertEqual(sorted(ws["current"]), sorted(ws["original"]))
+        self.assertEqual([list(p) for p in ws["suggested_key"][-1]], curve)
+        summ = [_h.unescape(x.proto.body) for x in at.get("html") if 'class="pl-summary' in x.proto.body][0]
+        self.assertIn("직접 만든 흐름으로 정렬했어요", summ)
+        # 곡선만 바꾸고 다시 정렬하지 않음 → 흐름이 바뀌었다는 안내
+        at.session_state.custom_curve = [[0, 0], [1, 1]]
+        at.run()
+        summ = [_h.unescape(x.proto.body) for x in at.get("html") if 'class="pl-summary' in x.proto.body][0]
+        self.assertIn("흐름이 바뀌었어요. 다시 정렬해 주세요", summ)
+        # 저장한 순서에 곡선 포함
+        at.text_input(key="version_name").input("그린흐름").run()
+        [b for b in at.button if b.label == "현재 순서 저장"][0].click().run()
+        self.assertEqual(at.session_state.ws["versions"][0]["settings"]["curve"], [[0, 0], [1, 1]])
 
     def test_demo_flow(self):
         at = fresh()

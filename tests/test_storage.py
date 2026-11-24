@@ -144,3 +144,24 @@ class SchemaV2Test(unittest.TestCase):
         data["schema_version"] = 99
         _, errs = parse_project(json.dumps(data).encode("utf-8"))
         self.assertTrue(errs)
+
+
+class CurveSettingsTest(unittest.TestCase):
+    def test_curve_saved_and_restored(self):
+        curve = [[0, .2], [0.5, .9], [1, .1]]
+        st = {**SETTINGS, "mode": "custom", "curve": curve}
+        raw = export(settings=st, versions=[{"name": "v", "created_at": "t", "order": ["x1", "x2"], "settings": st}])
+        project, errs = parse_project(raw)
+        self.assertFalse(errs, errs)
+        self.assertEqual(project["settings"]["curve"], curve)
+        self.assertEqual(project["versions"][0]["settings"]["curve"], curve)
+
+    def test_custom_without_curve_rejected_and_bad_curve_rejected(self):
+        for bad in ({**SETTINGS, "mode": "custom"}, {**SETTINGS, "mode": "custom", "curve": [[0, 0], [0, 1]]}):
+            _, errs = parse_project(export(settings=bad))
+            self.assertTrue(errs)
+
+    def test_old_file_without_curve_still_opens(self):
+        project, errs = parse_project(export())
+        self.assertFalse(errs, errs)
+        self.assertIsNone(project["settings"].get("curve"))

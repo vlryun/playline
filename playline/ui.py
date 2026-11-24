@@ -46,6 +46,7 @@ SERIES_STYLE = {
     "추천 순서": {"color": CYAN, "dash": [1, 0], "shape": "diamond"},
     "내가 바꾼 순서": {"color": PINK, "dash": [1, 0], "shape": "square"},
     "원하는 흐름": {"color": "#F4F4F8", "dash": [2, 3], "shape": "triangle-up"},
+    "내가 그린 흐름": {"color": "#F4F4F8", "dash": [2, 3], "shape": "triangle-up"},
 }
 VERSION_STYLE = {"color": AMBER, "dash": [8, 3, 2, 3], "shape": "cross"}
 
@@ -205,6 +206,9 @@ def css() -> str:
 .st-key-focus_upload {{ outline:2px solid {PINK}; outline-offset:4px; border-radius:12px; }}
 [class*="st-key-trackrow_"] {{ border-radius:14px; padding:7px 8px; border:1px solid transparent;
   transition: background .2s, border-color .2s; }}
+[class*="st-key-whyrow_"] {{ margin-top:-10px; padding-left:52px; }}
+[class*="st-key-whyrow_"] button {{ min-height:0; padding:0 6px; font-size:12px; color:{MUTED}; }}
+@media (max-width: 640px) {{ [class*="st-key-whyrow_"] {{ padding-left:24px; }} }}
 [class*="st-key-trackrow_"]:hover {{ background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.1); }}
 [class*="st-key-modecard_"] {{ border:1px solid {LINE}; border-radius:12px; padding:3px 6px 3px 10px;
   background:rgba(255,255,255,.025); transition: border-color .2s, background .2s; }}
@@ -317,6 +321,31 @@ def css() -> str:
 .pl-sum-tag {{ flex:none; font-size:10.5px; font-weight:700; letter-spacing:.3px; padding:0 7px; border-radius:999px;
   line-height:18px; background:rgba(255,255,255,.08); color:{MUTED}; }}
 .pl-summary.stale .pl-sum-tag {{ background:rgba(255,196,107,.15); color:{AMBER}; }}
+.pl-summary.pop {{ animation: pl-pop 1.1s ease-out 1; }}
+@keyframes pl-pop {{ 0% {{ box-shadow: 0 0 0 0 rgba(124,247,255,.55); transform: scale(.985); }}
+  60% {{ box-shadow: 0 0 0 10px rgba(124,247,255,0); transform: scale(1); }} 100% {{ box-shadow:none; }} }}
+@media (prefers-reduced-motion: reduce) {{ .pl-summary.pop {{ animation:none; }} }}
+.st-key-curve_card {{ border-radius:18px; padding:12px 14px 6px; border:1px solid rgba(169,139,255,.35);
+  background: linear-gradient(160deg, rgba(169,139,255,.08), rgba(124,247,255,.03)); }}
+/* '왜 여기에?' 펼침 영역 */
+.pl-why {{ margin:-2px 6px 8px 48px; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.6;
+  background: rgba(255,255,255,.035); border:1px solid rgba(169,139,255,.28); color:{INK}; }}
+.pl-why p {{ margin:0 0 4px; }}
+.pl-why.stale {{ border-color: rgba(255,196,107,.4); background: rgba(255,196,107,.06); color:#F3DDB6; }}
+.pl-why-cmp {{ margin:8px 0 6px; padding:8px 10px; border-radius:10px; background: rgba(0,0,0,.25); }}
+.pl-why-h {{ font-size:12px; font-weight:700; color:{MUTED}; margin-bottom:4px; }}
+.pl-why-h small {{ font-weight:500; }}
+.pl-why-bar {{ display:grid; grid-template-columns: 118px 1fr 52px; gap:8px; align-items:center; font-size:12px; margin:3px 0; }}
+.pl-why-bar .lab {{ color:{MUTED}; }}
+.pl-why-bar .track {{ height:9px; border-radius:5px; background: rgba(255,255,255,.08); overflow:hidden; }}
+.pl-why-bar .track i {{ display:block; height:100%; border-radius:5px; }}
+.pl-why-bar .track i.tg {{ background: linear-gradient(90deg, rgba(124,247,255,.5), {CYAN}); }}
+.pl-why-bar .track i.me {{ background: linear-gradient(90deg, rgba(169,139,255,.5), {VIOLET}); }}
+.pl-why-bar .num {{ text-align:right; font-variant-numeric: tabular-nums; font-weight:700; }}
+.pl-why-diff {{ font-size:12px; color:{MUTED}; text-align:right; }}
+.pl-why-f {{ font-size:12px; color:{MUTED}; }}
+.pl-why-note {{ font-size:11.5px; color:{MUTED}; opacity:.9; }}
+@media (max-width: 640px) {{ .pl-why {{ margin-left:0; }} .pl-why-bar {{ grid-template-columns: 92px 1fr 44px; }} }}
 .pl-mobile-only {{ display:none; }}
 @media (max-width: 1000px) {{ .pl-nums {{ display:none; }} .pl-mobile-only {{ display:block; }} }}
 @media (max-width: 640px) {{
@@ -347,14 +376,14 @@ def svg_data_uri(svg: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
-def icon_css() -> str:
+def icon_css(curve=None) -> str:
     """브랜드 곡선과 흐름 모드 미리보기 곡선을 CSS 클래스로 만든다."""
     rules = [f'.pl-logo-mark{{width:36px;height:36px;flex:none;background:url("{svg_data_uri(logo_svg(36))}") '
              f'center/contain no-repeat;}}']
     for mode in MODES:
         for state, color in (("on", CYAN), ("off", "#5B6173")):
             rules.append(f'.pl-curve-{mode}-{state}{{width:58px;height:30px;flex:none;'
-                         f'background:url("{svg_data_uri(mode_svg(mode, color=color))}") center/contain no-repeat;}}')
+                         f'background:url("{svg_data_uri(mode_svg(mode, color=color, curve=curve))}") center/contain no-repeat;}}')
     return "<style>" + " ".join(rules) + "</style>"
 
 
@@ -394,19 +423,38 @@ def step_html(n: int, title: str) -> str:
     return f'<div class="pl-step"><span class="n">{n}</span>{esc(title)}</div>'
 
 
-def summary_html(lines: list[str], tags: list[str], stale: bool = False) -> str:
+def summary_html(lines: list[str], tags: list[str], stale: bool = False, pop: bool = False) -> str:
     """플레이리스트 위 한 줄 요약. tags 는 각 줄 앞의 작은 꼬리표(예: '추천 결과', '지금 순서')."""
     rows = "".join(f'<div class="pl-sum-row"><span class="pl-sum-tag">{esc(t)}</span><span>{esc(l)}</span></div>'
                    for t, l in zip(tags, lines))
-    return f'<div class="pl-summary{" stale" if stale else ""}" role="status">{rows}</div>'
+    cls = "pl-summary" + (" stale" if stale else "") + (" pop" if pop else "")
+    return f'<div class="{cls}" role="status">{rows}</div>'
+
+
+def why_html(pl) -> str:
+    """'왜 여기에?' 펼침 영역. pl 은 explain.Placement. 막대는 흐름 점수와 같은 0~1 눈금을 그대로 쓴다."""
+    if pl.stale:
+        return f'<div class="pl-why stale" role="note"><p>{esc(pl.lines[0])}</p></div>'
+    lines = "".join(f"<p>{esc(x)}</p>" for x in pl.lines)
+
+    def bar(label, value, cls):
+        w = max(0.0, min(1.0, value)) * 100
+        return (f'<div class="pl-why-bar"><span class="lab">{esc(label)}</span>'
+                f'<span class="track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
+                f'<span class="num">{value:.3f}</span></div>')
+    bars = (f'<div class="pl-why-cmp"><div class="pl-why-h">이 위치와 곡의 점수 비교 <small>(0~1 눈금)</small></div>'
+            + bar("이 위치의 목표", pl.target, "tg") + bar("이 곡의 흐름 점수", pl.score, "me")
+            + f'<div class="pl-why-diff">차이 {pl.diff:.3f}</div></div>')
+    return (f'<div class="pl-why" role="note">{lines}{bars}'
+            f'<p class="pl-why-f">{esc(pl.formula)}</p><p class="pl-why-note">{esc(pl.note)}</p></div>')
 
 
 def section_html(title: str) -> str:
     return f'<div class="pl-section"><h4>{esc(title)}</h4><span class="ln"></span></div>'
 
 
-def mode_svg(mode: str, w: int = 58, h: int = 30, color: str = CYAN) -> str:
-    ys = target_shape(mode, 21)
+def mode_svg(mode: str, w: int = 58, h: int = 30, color: str = CYAN, curve=None) -> str:
+    ys = target_shape(mode, 21, curve)
     pts = " ".join(f"{3 + i * (w - 6) / 20:.1f},{h - 4 - y * (h - 8):.1f}" for i, y in enumerate(ys))
     return (f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" aria-hidden="true">'
             f'<line x1="3" y1="{h - 2}" x2="{w - 3}" y2="{h - 2}" stroke="#3A3F50" stroke-width="1"/>'
@@ -502,7 +550,7 @@ def short(title: str, n: int = 16) -> str:
 
 def flow_chart(series: dict[str, list[str]], tracks: dict[str, dict], values: dict[str, float],
                metric_label: str, domain: tuple[float, float], target: list[float] | None,
-               raw: dict[str, dict]) -> alt.Chart:
+               raw: dict[str, dict], target_name: str = "원하는 흐름") -> alt.Chart:
     """곡별 대표값을 순서대로 이은 비교 그래프.
 
     series : 계열 이름 → 곡 id 순서
@@ -517,11 +565,11 @@ def flow_chart(series: dict[str, list[str]], tracks: dict[str, dict], values: di
                          "흐름 점수": raw[tid]["score"]})
     if target is not None:
         for i, v in enumerate(target, start=1):
-            rows.append({"계열": "원하는 흐름", "순서": i, "값": float(v), "곡명": "(원하는 흐름)",
+            rows.append({"계열": target_name, "순서": i, "값": float(v), "곡명": f"({target_name})",
                          "짧은 곡명": "", "빠르기": None, "소리 크기": None, "흐름 점수": float(v)})
     df = pd.DataFrame(rows)
 
-    names = list(series) + (["원하는 흐름"] if target is not None else [])
+    names = list(series) + ([target_name] if target is not None else [])
     styles = [SERIES_STYLE.get(n, VERSION_STYLE) for n in names]
     color = alt.Color("계열:N", scale=alt.Scale(domain=names, range=[s["color"] for s in styles]),
                       legend=alt.Legend(title=None, orient="bottom", direction="horizontal", symbolStrokeWidth=2.5,

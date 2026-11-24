@@ -61,7 +61,54 @@ MODES = {
         "label": "운동 코스",
         "desc": "워밍업 → 쭉 신나게 → 마지막 쿨다운까지, 운동할 때 딱 맞게.",
     },
+    "custom": {
+        "label": "✏️ 나만의 흐름",
+        "desc": "듣고 싶은 흐름을 그려 보세요. 담아 둔 곡들을 그 흐름에 가깝게 배열해 드려요.",
+    },
 }
+PRESET_MODES = [m for m in MODES if m != "custom"]   # 기존 9가지 흐름
+CUSTOM = "custom"
+CURVE_MIN_POINTS, CURVE_MAX_POINTS = 2, 64
+DEFAULT_CURVE = [[i / 6, i / 6] for i in range(7)]  # 처음 열었을 때: 7개 점, 점점 올라가는 선
+
+
+def clean_curve(curve) -> list[list[float]] | None:
+    """사용자 곡선을 검증·정리한다. [[x, y], ...], x 는 0→1 로 증가, y 는 0~1.
+
+    잘못된 값이면 None. 범위를 벗어난 y 는 0~1 로 자르고, x 는 처음 0·끝 1 로 맞춘다.
+    """
+    if not isinstance(curve, (list, tuple)) or not (CURVE_MIN_POINTS <= len(curve) <= CURVE_MAX_POINTS):
+        return None
+    pts = []
+    for p in curve:
+        if not isinstance(p, (list, tuple)) or len(p) != 2:
+            return None
+        try:
+            x, y = float(p[0]), float(p[1])
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(x) and np.isfinite(y)):
+            return None
+        pts.append([min(max(x, 0.0), 1.0), min(max(y, 0.0), 1.0)])
+    pts.sort(key=lambda q: q[0])
+    xs = [q[0] for q in pts]
+    if any(b - a < 1e-6 for a, b in zip(xs, xs[1:])):   # 가로 위치가 겹치면 곡선이 아님
+        return None
+    pts[0][0], pts[-1][0] = 0.0, 1.0
+    return [[round(x, 4), round(y, 4)] for x, y in pts]
+
+
+def sample_curve(curve, n: int) -> np.ndarray:
+    """곡선에서 곡 n개 자리(처음=0, 마지막=1)의 목표값을 선형 보간으로 뽑는다."""
+    pts = clean_curve(curve) or DEFAULT_CURVE
+    xs = np.array([p[0] for p in pts])
+    ys = np.array([p[1] for p in pts])
+    if n <= 0:
+        return np.zeros(0)
+    if n == 1:
+        return np.array([float(np.interp(0.5, xs, ys))])
+    return np.interp(np.linspace(0.0, 1.0, n), xs, ys)
+
 
 ARC_PEAK = 0.6  # 고조 후 차분 모드에서 가장 높은 지점의 상대 위치
 EPS = 1e-12
@@ -113,10 +160,12 @@ def compute_scores(tracks: list[dict], bpm_weight: float) -> dict[str, ScoreInfo
     return out
 
 
-def target_shape(mode: str, n: int) -> np.ndarray:
-    """0~1 범위의 목표 곡선 모양."""
+def target_shape(mode: str, n: int, curve=None) -> np.ndarray:
+    """0~1 범위의 목표 곡선 모양. mode 가 'custom' 이면 사용자가 그린 curve 를 쓴다."""
     if mode not in MODES:
         raise ValueError(f"알 수 없는 흐름 모드: {mode}")
+    if mode == CUSTOM:
+        return sample_curve(curve, n)
     if n <= 0:
         return np.zeros(0)
     if n == 1:
@@ -146,9 +195,9 @@ def target_shape(mode: str, n: int) -> np.ndarray:
     return np.where(x <= up, 0.3 + 0.7 * x / up, np.where(x <= down, 1.0, 1.0 - 0.7 * (x - down) / (1.0 - down)))
 
 
-def target_curve(mode: str, n: int, lo: float, hi: float) -> np.ndarray:
+def target_curve(mode: str, n: int, lo: float, hi: float, curve=None) -> np.ndarray:
     """목표 곡선을 이 목록의 흐름 점수 범위 [lo, hi]에 맞춘다."""
-    shape = target_shape(mode, n)
+    shape = target_shape(mode, n, curve)
     if hi - lo < EPS:
         return np.full(n, lo)
     if n == 1:
@@ -178,7 +227,7 @@ class ArrangeResult:
 
 def arrange(order: list[str], scores: dict[str, ScoreInfo], mode: str,
             pin_first: str | None = None, pin_last: str | None = None,
-            smooth: float = 0.2) -> ArrangeResult:
+            smooth: float = 0.2, curve=None) -> ArrangeResult:
     """흐름 모드에 맞춘 순서를 제안한다.
 
     order    : 원본 순서(동점일 때 원본 순서가 앞선 곡을 먼저 둔다)
@@ -201,7 +250,7 @@ def arrange(order: list[str], scores: dict[str, ScoreInfo], mode: str,
         return ArrangeResult(order=None, error="같은 곡을 첫 곡과 마지막 곡으로 동시에 고정할 수 없습니다.")
 
     lo, hi = score_range(scores)
-    target = target_curve(mode, n, lo, hi)
+    target = target_curve(mode, n, lo, hi, curve)
     rank = {tid: i for i, tid in enumerate(order)}
 
     slots: list[str | None] = [None] * n
@@ -257,13 +306,13 @@ class OrderMetrics:
     max_jump: float       # 인접 곡 사이 흐름 점수 변화의 최댓값
 
 
-def evaluate(order: list[str], scores: dict[str, ScoreInfo], mode: str) -> OrderMetrics:
+def evaluate(order: list[str], scores: dict[str, ScoreInfo], mode: str, curve=None) -> OrderMetrics:
     n = len(order)
     if n == 0:
         return OrderMetrics(0.0, 0.0, 0.0)
     lo, hi = score_range(scores)
     seq = np.array([scores[t].score for t in order])
-    target = target_curve(mode, n, lo, hi)
+    target = target_curve(mode, n, lo, hi, curve)
     diffs = np.abs(np.diff(seq)) if n > 1 else np.zeros(1)
     return OrderMetrics(
         mae=float(np.abs(seq - target).mean()),
@@ -319,14 +368,19 @@ def compare_word(value: float, ref: float) -> str:
 
 
 def result_summary(mode_label: str, original: OrderMetrics, suggested: OrderMetrics,
-                   current: OrderMetrics | None = None) -> list[str]:
+                   current: OrderMetrics | None = None, custom: bool = False) -> list[str]:
     """추천 결과 요약 문장들. current 는 직접 바꾼 순서일 때만 넘긴다.
 
     '원하는 흐름과의 차이'(목표 곡선과의 평균 절대 오차)만 말하고, 듣기 좋아졌다고 단정하지 않는다.
     """
     a, b = fmt_metric(original.mae), fmt_metric(suggested.mae)
     w = change_word(original.mae, suggested.mae)
-    if w == "같아요":
+    if custom:
+        if w == "같아요":
+            first = f"직접 만든 흐름으로 정렬했어요. 목표 흐름과의 차이는 {b}{ro(b)} 원래 순서와 같아요."
+        else:
+            first = f"직접 만든 흐름으로 정렬했어요. 목표 흐름과의 차이가 {a} → {b}{ro(b)} {w}."
+    elif w == "같아요":
         first = f"‘{mode_label}’ 흐름으로 정렬했어요. 원하는 흐름과의 차이는 {b}{ro(b)} 원래 순서와 같아요."
     else:
         first = f"‘{mode_label}’ 흐름으로 정렬했어요. 원하는 흐름과의 차이가 {a} → {b}{ro(b)} {w}."

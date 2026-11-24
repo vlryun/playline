@@ -16,6 +16,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from playline import analysis, arrange as ar, covers, library, player, storage, ui
+from playline.curve_editor import curve_editor
+from playline.explain import placement
 from playline.demo import demo_track, load_demo
 
 st.set_page_config(page_title="PLAYLINE · 플레이라인", page_icon="〰", layout="wide",
@@ -42,12 +44,31 @@ DEFAULTS = {
     "upload_audio": {},         # sha256 -> 이 세션에 올린 음원 {filename, data, mime, size} (탭을 바꿔도 유지)
     "play_cmd": None,           # 플레이어에 보낼 명령 {"nonce", "action", "id"}
     "play_nonce": 0,
+    "custom_curve": None,       # '나만의 흐름'에서 편집 중인 곡선 [[x, y], ...] (None 이면 기본 곡선)
+    "why_open": [],             # '왜 여기에?'를 펼친 곡 id
+    "pop_summary": False,       # 방금 정렬했으면 요약에 한 번 강조 효과
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v if not isinstance(v, (dict, list)) else type(v)()
 
 S = st.session_state
+if S.custom_curve is None:
+    S.custom_curve = [list(p) for p in ar.DEFAULT_CURVE]
+_ed = st.session_state.get("curve_editor")
+_sent = None
+if _ed is not None:
+    _sent = getattr(_ed, "curve", None)
+    if _sent is None and hasattr(_ed, "get"):
+        try:
+            _sent = _ed.get("curve")
+        except Exception:
+            _sent = None
+if _sent is not None:
+    _clean = ar.clean_curve(_sent)
+    if _clean is not None and _clean != S.custom_curve and _sent != S.get("_last_editor_curve"):
+        S.custom_curve = _clean
+    S._last_editor_curve = _sent
 
 
 @st.cache_data(show_spinner=False)
@@ -103,9 +124,17 @@ def flash(kind: str, msg: str):
     S.flash.append((kind, msg))
 
 
+def active_curve():
+    """'나만의 흐름'일 때만 사용자 곡선, 아니면 None (기존 9가지 흐름은 곡선 없이 계산)."""
+    return S.custom_curve if S.mode == ar.CUSTOM else None
+
+
 def settings() -> dict:
-    return {"mode": S.mode, "bpm_weight": S.bpm_weight_pct / 100, "smooth": float(S.smooth),
-            "pin_first": S.pin_first or None, "pin_last": S.pin_last or None}
+    out = {"mode": S.mode, "bpm_weight": S.bpm_weight_pct / 100, "smooth": float(S.smooth),
+           "pin_first": S.pin_first or None, "pin_last": S.pin_last or None}
+    if S.mode == ar.CUSTOM:
+        out["curve"] = [list(p) for p in S.custom_curve]
+    return out
 
 
 def set_settings(s: dict):
@@ -114,6 +143,9 @@ def set_settings(s: dict):
     S.smooth = float(s["smooth"])
     S.pin_first = s.get("pin_first") or ""
     S.pin_last = s.get("pin_last") or ""
+    c = ar.clean_curve(s.get("curve")) if s.get("curve") is not None else None
+    if c is not None:
+        S.custom_curve = c
 
 
 def new_ws(kind: str, tracks: list[dict], excluded=None, versions=None, from_json=False) -> dict:
@@ -140,7 +172,26 @@ def score_inputs(ws) -> list[dict]:
 def suggestion_key(ws) -> tuple:
     s = settings()
     factors = tuple(ws["tracks"][t].get("bpm_factor", 1.0) for t in ws["original"])
-    return (s["mode"], s["bpm_weight"], s["smooth"], s["pin_first"], s["pin_last"], factors)
+    curve = tuple(tuple(p) for p in s["curve"]) if s.get("curve") else None
+    return (s["mode"], s["bpm_weight"], s["smooth"], s["pin_first"], s["pin_last"], factors, curve)
+
+
+def applied_curve(ws):
+    """마지막 정렬에 실제로 쓴 사용자 곡선 (나만의 흐름으로 정렬했을 때만)."""
+    k = ws.get("suggested_key") if ws else None
+    return [list(p) for p in k[-1]] if k and len(k) >= 7 and k[-1] else None
+
+
+def stale_reason(ws) -> str | None:
+    """마지막 추천과 지금 설정이 다르면 그 이유 ('curve' = 그린 흐름만 바뀜, 'settings' = 그 밖의 설정)."""
+    if not ws or not ws.get("suggested"):
+        return None
+    old, now = ws.get("suggested_key"), suggestion_key(ws)
+    if old == now:
+        return None
+    if old and len(old) == len(now) and old[:-1] == now[:-1]:
+        return "curve"
+    return "settings"
 
 
 def locked_positions(ws) -> set[int]:
@@ -177,7 +228,7 @@ def compute_suggestion(ws) -> list[str] | None:
     scores = ar.compute_scores(score_inputs(ws), S.bpm_weight_pct / 100)
     pf = S.pin_first if S.pin_first in ws["tracks"] else None
     pl = S.pin_last if S.pin_last in ws["tracks"] else None
-    res = ar.arrange(ws["original"], scores, S.mode, pf, pl, float(S.smooth))
+    res = ar.arrange(ws["original"], scores, S.mode, pf, pl, float(S.smooth), curve=active_curve())
     return None if res.error else res.order
 
 
@@ -252,6 +303,11 @@ def remove_track(tid: str):
     else:
         ws["suggested"], ws["suggested_key"] = None, None
     flash("info", f"'{title}'을(를) 플레이리스트에서 뺐어요. 다른 곡의 값과 설정은 그대로예요.")
+
+
+def toggle_why(tid: str):
+    opened = list(S.why_open)
+    S.why_open = [x for x in opened if x != tid] if tid in opened else opened + [tid]
 
 
 def play_track(tid: str):
@@ -404,17 +460,20 @@ def run_arrange(silent=False):
     if not ws or not ws["original"]:
         return
     scores = ar.compute_scores(score_inputs(ws), S.bpm_weight_pct / 100)
-    res = ar.arrange(ws["original"], scores, S.mode, S.pin_first or None, S.pin_last or None, float(S.smooth))
+    res = ar.arrange(ws["original"], scores, S.mode, S.pin_first or None, S.pin_last or None, float(S.smooth),
+                     curve=active_curve())
     if res.error:
         flash("error", res.error)
         return
     ws["suggested"] = res.order
     ws["suggested_key"] = suggestion_key(ws)
     ws["current"] = list(res.order)
+    S.pop_summary = True
     for n in res.notes or []:
         flash("info", n)
     if not silent:
-        flash("success", f"'{ar.MODES[S.mode]['label']}' 흐름으로 순서를 추천했어요. 화살표로 직접 바꿀 수도 있어요.")
+        flash("success", ("직접 만든 흐름으로 순서를 추천했어요." if S.mode == ar.CUSTOM else
+                          f"'{ar.MODES[S.mode]['label']}' 흐름으로 순서를 추천했어요.") + " 화살표로 직접 바꿀 수도 있어요.")
 
 
 def choose_mode(mode):
@@ -525,7 +584,7 @@ def apply_demo_edit(df: pd.DataFrame):
 # ───────────────────────── 화면 ─────────────────────────
 
 st.html(ui.css())
-st.html(ui.icon_css())
+st.html(ui.icon_css(S.custom_curve))
 
 hero_l, hero_r = st.columns([3, 1.25], vertical_alignment="bottom")
 with hero_l:
@@ -698,7 +757,8 @@ def render_import_and_help():
 - **빠르기 (BPM)** — 1분에 박자가 몇 번 오는지예요. 숫자가 클수록 빠른 곡이에요. 컴퓨터가 잴 때 실제보다 절반이나 두 배로 잡힐 수 있어서, '곡별 상세 정보'에서 바로잡을 수 있어요.
 - **소리 크기 (RMS)** — 곡 전체의 평균 소리 세기예요. 클수록 크고 꽉 찬 느낌으로 들려요. 슬픔·기쁨 같은 감정을 뜻하지는 않아요.
 - **흐름 점수** — 빠르기와 소리 크기를 합쳐서 0(가장 잔잔)~1(가장 강함)로 나타낸 점수예요. 지금 고른 곡들끼리 비교한 값이라, 다른 플레이리스트의 점수와는 비교할 수 없어요.
-- **원하는 흐름** — 고른 흐름(점점 신나게 / 점점 차분하게 / 올렸다가 내리기)을 선으로 그린 거예요. 그래프의 흰 점선이에요.
+- **원하는 흐름** — 고른 흐름(점점 신나게, 파도처럼 같은 9가지 흐름 또는 ✏️ 나만의 흐름)을 선으로 그린 거예요. 그래프의 흰 점선이에요.
+- **✏️ 나만의 흐름** — 편집기에 그린 선에서 곡 수만큼 같은 간격의 자리 값을 뽑아(점 사이는 직선으로 이어서) 목표로 써요. 세로축은 앱이 계산하는 흐름 점수의 목표이고, 실제 감정을 잰 값이 아니에요.
 - **원하는 흐름과의 차이** — 자리마다 '흐름 점수'와 '원하는 흐름 선'의 차이를 구해 평균한 값이에요. 작을수록 고른 흐름의 모양에 가까워요.
 - **곡 넘어갈 때 평균 변화** — 이웃한 두 곡의 흐름 점수 차이를 평균한 값이에요. 작을수록 이웃한 곡끼리 점수가 비슷해요.
 - **가장 크게 튀는 곳** — 이웃한 두 곡 사이 흐름 점수 차이 중 가장 큰 값이에요.
@@ -708,9 +768,30 @@ def render_import_and_help():
 
 
 
+def render_curve_editor(ws):
+    """'✏️ 나만의 흐름'을 골랐을 때만 보이는 곡선 편집기 + 정렬 버튼."""
+    if S.mode != ar.CUSTOM:
+        return
+    n = len(ws["original"]) if ws else 0
+    with st.container(key="curve_card"):
+        st.html(ui.section_html("✏️ 나만의 흐름 그리기"))
+        st.caption("듣고 싶은 흐름을 그려 보세요. 담아 둔 곡들을 그 흐름에 가깝게 배열해 드려요. "
+                   "가로는 플레이리스트의 처음 → 마지막(곡 순서), 세로는 앱이 계산하는 흐름 점수의 목표예요.")
+        presets = {m: {"label": ar.MODES[m]["label"], "ys": [round(float(v), 4) for v in ar.target_shape(m, 13)]}
+                   for m in ar.PRESET_MODES}
+        curve_editor(S.custom_curve, presets=presets, default=[list(p) for p in ar.DEFAULT_CURVE],
+                     applied=applied_curve(ws), n_tracks=n)
+        c1, c2 = st.columns([1.2, 2], vertical_alignment="center")
+        c1.button("이 흐름으로 정렬", type="primary", icon=":material/draw:", width="stretch", key="curve_apply",
+                  on_click=run_arrange, disabled=not n)
+        c2.caption("담은 곡들의 특성에 따라 그린 흐름과 실제 결과가 다를 수 있어요. "
+                   + ("곡을 담으면 정렬할 수 있어요." if not n else f"지금 {n}곡 → 흰 점 {n}개 자리의 목표값으로 정렬해요."))
+
+
 # ─────────── 중앙: 작업 영역 ───────────
 with main:
     ws = S.ws
+    render_curve_editor(ws)
     if not ws or not ws["original"]:
         st.html("""
 <div class="pl-empty">
@@ -767,16 +848,24 @@ with main:
 
     # ── 곡 목록 ──
     st.html(ui.section_html("플레이리스트"))
+    pop = S.pop_summary
+    S.pop_summary = False
+    why_stale = stale_reason(ws)
     if sug:
-        if ws["suggested_key"] != suggestion_key(ws):
+        if why_stale == "curve":
+            st.html(ui.summary_html(["흐름이 바뀌었어요. 다시 정렬해 주세요. ('이 흐름으로 정렬')"], ["다시 정렬 필요"],
+                                    stale=True))
+        elif why_stale:
             # 설정만 바뀌고 아직 다시 추천하지 않음: 예전 추천 결과와 새 설정을 섞어 말하지 않는다
             st.html(ui.summary_html(["설정이 바뀌었어요. 다시 추천해 주세요. ('추천 순서 만들기')"], ["다시 추천 필요"],
                                     stale=True))
         else:
-            lines = ar.result_summary(ar.MODES[S.mode]["label"], ar.evaluate(org, scores, S.mode),
-                                      ar.evaluate(sug, scores, S.mode),
-                                      ar.evaluate(cur, scores, S.mode) if cur != sug else None)
-            st.html(ui.summary_html(lines, ["추천 결과", "지금 순서"][:len(lines)]))
+            cv = active_curve()
+            lines = ar.result_summary(ar.MODES[S.mode]["label"], ar.evaluate(org, scores, S.mode, cv),
+                                      ar.evaluate(sug, scores, S.mode, cv),
+                                      ar.evaluate(cur, scores, S.mode, cv) if cur != sug else None,
+                                      custom=S.mode == ar.CUSTOM)
+            st.html(ui.summary_html(lines, ["추천 결과", "지금 순서"][:len(lines)], pop=pop))
     b1, b2, b3 = st.columns([1, 1, 2.2])
     b1.button("추천 순서로 되돌리기", icon=":material/auto_awesome:", width="stretch", on_click=restore,
               args=("suggested",), disabled=not sug or cur == sug)
@@ -816,6 +905,17 @@ with main:
             if not demo:
                 st.button("", key=f"rm_{tid}", icon=":material/close:", on_click=remove_track, args=(tid,),
                           help="플레이리스트에서 빼기 (다른 곡 값·설정은 그대로)", type="tertiary")
+        opened = tid in S.why_open
+        with st.container(key=f"whyrow_{i}"):
+            st.button("왜 여기에? 닫기" if opened else "왜 여기에?", key=f"why_{tid}", type="tertiary",
+                      icon=":material/expand_less:" if opened else ":material/help_outline:",
+                      on_click=toggle_why, args=(tid,), help="이 곡이 지금 자리에 놓인 근거를 실제 계산값으로 보여 줘요")
+            if opened:
+                pl = placement(tid, current=cur, original=org, suggested=sug, scores=scores, mode=S.mode,
+                               curve=active_curve(), pin_first=S.pin_first or None, pin_last=S.pin_last or None,
+                               smooth=float(S.smooth), bpm_weight=S.bpm_weight_pct / 100,
+                               stale=stale_reason(ws) is not None, bpm=storage.effective_bpm(t), rms=t["rms"])
+                st.html(ui.why_html(pl))
 
     if ws["excluded"]:
         with st.expander(f"넣지 못한 파일 {len(ws['excluded'])}개", icon=":material/error:", expanded=True):
@@ -884,7 +984,7 @@ with main:
     lo, hi = ar.score_range(scores)
     if metric == "흐름 점수":
         values = {t: raw[t]["score"] for t in org}
-        target = list(ar.target_curve(S.mode, len(org), lo, hi))
+        target = list(ar.target_curve(S.mode, len(org), lo, hi, active_curve()))
         domain = (-0.04, 1.04)
         label = "흐름 점수 (0 차분 ~ 1 신남)"
     elif metric == "빠르기":
@@ -896,11 +996,14 @@ with main:
         target, label = None, "소리 크기 (RMS)"
         domain = ui.padded_domain(list(values.values()))
 
-    st.altair_chart(ui.flow_chart(series, tracks, values, label, domain, target, raw), theme=None,
+    st.altair_chart(ui.flow_chart(series, tracks, values, label, domain, target, raw,
+                                  target_name="내가 그린 흐름" if S.mode == ar.CUSTOM else "원하는 흐름"), theme=None,
                     width="stretch")
     notes = ["점 하나가 곡 하나예요. 곡마다 대표값 하나를 재생 순서대로 이은 선이라, 곡 안에서의 변화는 보여 주지 않아요."]
     if metric == "흐름 점수":
-        notes.append(f"흰 점선이 고른 흐름('{ar.MODES[S.mode]['label']}')이에요. 추천 순서가 이 선에 가까울수록 원하는 흐름에 맞아요.")
+        notes.append("흰 점선이 내가 그린 흐름이에요. 추천 순서가 이 선에 가까울수록 그린 흐름에 맞아요."
+                     if S.mode == ar.CUSTOM else
+                     f"흰 점선이 고른 흐름('{ar.MODES[S.mode]['label']}')이에요. 추천 순서가 이 선에 가까울수록 원하는 흐름에 맞아요.")
     if metric == "빠르기" and any(raw[t]["bpm"] is None for t in org):
         notes.append("빠르기를 못 잰 곡은 점이 비어서 선이 끊겨 보여요.")
     if demo:
@@ -909,7 +1012,7 @@ with main:
 
     # 지표
     def mrow(name, order):
-        m = ar.evaluate(order, scores, S.mode)
+        m = ar.evaluate(order, scores, S.mode, active_curve())
         return {"순서": name, "원하는 흐름과의 차이": round(m.mae, 3), "곡 넘어갈 때 평균 변화": round(m.mean_jump, 3),
                 "가장 크게 튀는 곳": round(m.max_jump, 3)}
 
@@ -930,7 +1033,7 @@ with main:
         vrows = []
         for v in ws["versions"]:
             ok = set(v["order"]) == set(tracks)
-            m = ar.evaluate(v["order"], scores, S.mode) if ok else None
+            m = ar.evaluate(v["order"], scores, S.mode, active_curve()) if ok else None
             vrows.append({"이름": v["name"], "저장 시각": v["created_at"].replace("T", " "),
                           "저장할 때 흐름": ar.MODES[v["settings"]["mode"]]["label"],
                           "원하는 흐름과의 차이": None if m is None else round(m.mae, 3),

@@ -174,7 +174,8 @@ if __name__ == "__main__":
 
 class ModeShapeTest(unittest.TestCase):
     def test_all_modes_in_range_and_distinct(self):
-        shapes = {m: target_shape(m, 21) for m in MODES}
+        from playline.arrange import PRESET_MODES
+        shapes = {m: target_shape(m, 21) for m in PRESET_MODES}
         self.assertGreaterEqual(len(MODES), 5)
         for m, s in shapes.items():
             self.assertTrue(np.all((s >= -1e-9) & (s <= 1 + 1e-9)), m)
@@ -225,3 +226,64 @@ class SummaryTest(unittest.TestCase):
                        enumerate([(70, .05), (128, .2), (95, .1), (150, .25), (110, .12), (82, .07), (135, .18)])]
         self.scores = compute_scores(self.tracks, 0.5)
         self.order = [t["id"] for t in self.tracks]
+
+
+class CustomCurveTest(unittest.TestCase):
+    def setUp(self):
+        self.tracks = [{"id": f"t{i}", "bpm": b, "rms": r} for i, (b, r) in
+                       enumerate([(70, .05), (128, .2), (95, .1), (150, .25), (110, .12), (82, .07), (135, .18)])]
+        self.scores = compute_scores(self.tracks, 0.5)
+        self.order = [t["id"] for t in self.tracks]
+
+    def test_clean_curve(self):
+        from playline.arrange import clean_curve
+        self.assertEqual(clean_curve([[0.1, 1.5], [0.9, -2]]), [[0.0, 1.0], [1.0, 0.0]])   # 범위 밖 → 잘라냄, 양끝 0·1
+        self.assertIsNone(clean_curve([[0, 0], [0, 1]]))                                     # x 겹침
+        self.assertIsNone(clean_curve([[0, "a"], [1, 1]]))
+        self.assertIsNone(clean_curve([[0, 0]]))
+        self.assertEqual(clean_curve([[1, 0], [0, 1]]), [[0.0, 1.0], [1.0, 0.0]])            # x 순서대로 정리
+
+    def test_sample_count_matches_tracks_and_linear(self):
+        from playline.arrange import sample_curve
+        curve = [[0, 0], [0.5, 1], [1, 0]]
+        for n in (1, 2, 3, 5, 8, 31):
+            self.assertEqual(len(sample_curve(curve, n)), n)
+        np.testing.assert_allclose(sample_curve(curve, 5), [0, .5, 1, .5, 0])   # 점 사이 선형 보간
+
+    def test_shapes_sort_without_loss_or_duplicates(self):
+        shapes = {
+            "flat": [[0, .5], [1, .5]],
+            "rise": [[0, 0], [1, 1]],
+            "fall": [[0, 1], [1, 0]],
+            "multi": [[i / 8, (i % 2)] for i in range(9)],
+        }
+        for name, curve in shapes.items():
+            for pins in ((None, None), ("t3", None), ("t0", "t6")):
+                r = arrange(self.order, self.scores, "custom", *pins, smooth=0.2, curve=curve)
+                self.assertIsNone(r.error, name)
+                self.assertEqual(sorted(r.order), sorted(self.order), name)
+                if pins[0]:
+                    self.assertEqual(r.order[0], pins[0])
+                if pins[1]:
+                    self.assertEqual(r.order[-1], pins[1])
+                # 같은 입력이면 같은 결과
+                self.assertEqual(r.order, arrange(self.order, self.scores, "custom", *pins, smooth=0.2, curve=curve).order)
+
+    def test_custom_rise_equals_preset_rise(self):
+        # 직선 상승을 그리면 기존 '점점 신나게'와 목표·결과가 같아야 한다 (같은 알고리즘에 목표만 전달)
+        a = arrange(self.order, self.scores, "custom", curve=[[0, 0], [1, 1]], smooth=0.2).order
+        b = arrange(self.order, self.scores, "rise", smooth=0.2).order
+        self.assertEqual(a, b)
+        self.assertAlmostEqual(evaluate(a, self.scores, "custom", [[0, 0], [1, 1]]).mae, evaluate(b, self.scores, "rise").mae)
+
+    def test_few_tracks_and_flat_scores(self):
+        one = compute_scores([{"id": "a", "bpm": 100, "rms": .1}], .5)
+        self.assertEqual(arrange(["a"], one, "custom", curve=[[0, 0], [1, 1]]).order, ["a"])
+        same = compute_scores([{"id": x, "bpm": 100, "rms": .1} for x in "abc"], .5)
+        r = arrange(list("abc"), same, "custom", curve=[[0, 1], [0.5, 0], [1, 1]])
+        self.assertEqual(sorted(r.order), list("abc"))
+
+    def test_custom_summary_sentence(self):
+        from playline.arrange import OrderMetrics, result_summary
+        line = result_summary("✏️ 나만의 흐름", OrderMetrics(.3, 0, 0), OrderMetrics(.12, 0, 0), custom=True)[0]
+        self.assertEqual(line, "직접 만든 흐름으로 정렬했어요. 목표 흐름과의 차이가 0.300 → 0.120으로 줄었어요.")
