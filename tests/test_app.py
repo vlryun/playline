@@ -28,6 +28,24 @@ class AppFlowTest(unittest.TestCase):
         self.assertIsNone(at.session_state.ws)
         self.assertTrue(at.button(key="arrange_btn").disabled)
 
+    def test_library_flow(self):
+        from playline.library import load_library
+        lib = load_library()
+        if not lib:
+            self.skipTest("라이브러리가 비어 있음")
+        at = fresh()
+        self.assertTrue(at.button(key="lib_start").disabled)
+        at.button(key="lib_all").click().run()
+        at.button(key="lib_start").click().run()
+        self.assertEqual(len(at.exception), 0, [e.value for e in at.exception])
+        ws = at.session_state.ws
+        self.assertEqual(ws["kind"], "measured")
+        self.assertEqual(len(ws["original"]), len(lib))
+        self.assertTrue(all(t["source"] == "library" for t in ws["tracks"].values()))
+        self.assertIsNotNone(ws["suggested"])
+        # 분석값은 라이브러리 파일 값 그대로 (다시 분석하지 않음)
+        self.assertEqual(at.session_state.analysis_runs, 0)
+
     def test_demo_flow(self):
         at = fresh()
         at.button(key="hero_demo").click().run()

@@ -12,7 +12,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from playline import analysis, arrange as ar, storage, ui
+from playline import analysis, arrange as ar, library, storage, ui
 from playline.demo import demo_track, load_demo
 
 st.set_page_config(page_title="PLAYLINE · 플레이라인", page_icon="〰", layout="wide",
@@ -41,6 +41,15 @@ for k, v in DEFAULTS.items():
         st.session_state[k] = v if not isinstance(v, (dict, list)) else type(v)()
 
 S = st.session_state
+
+
+@st.cache_data(show_spinner=False)
+def library_entries() -> list[dict]:
+    return library.load_library()
+
+
+LIB = library_entries()
+LIB_AUDIO = library.audio_files(LIB)   # 서버에 음원 파일이 있는 라이브러리 곡 (sha256 -> 정보)
 
 
 # ───────────────────────── 상태 도우미 ─────────────────────────
@@ -125,6 +134,27 @@ def start_demo():
     S.focus_upload = False
     run_arrange(silent=True)
     flash("info", "데모를 불러왔습니다. 곡명은 공개 차트에서 확인했지만 BPM·RMS는 가상값입니다.")
+
+
+def start_library():
+    picked = [e for e in LIB if S.get(f"lib_pick_{e['sha256'][:12]}")]
+    if not picked:
+        flash("warning", "라이브러리에서 곡을 한 곡 이상 골라 주세요.")
+        return
+    prev = S.ws
+    tracks = [library.to_track(e) for e in picked]
+    keep = prev["versions"] if prev and prev["kind"] == "measured" and set(prev["tracks"]) == {t["id"] for t in tracks} else []
+    S.ws = new_ws("measured", tracks, versions=keep)
+    reset_pins_if_missing()
+    S.preview_id = None
+    S.focus_upload = False
+    run_arrange(silent=True)
+    flash("success", f"라이브러리에서 {len(tracks)}곡을 넣었습니다. 미리 분석해 둔 실제 분석값으로 순서를 제안했습니다.")
+
+
+def set_library_picks(value: bool, shas: list[str]):
+    for sha in shas:
+        S[f"lib_pick_{sha[:12]}"] = value
 
 
 def focus_upload():
@@ -343,13 +373,40 @@ with left:
     with st.container(key="panel"):
         with st.container(key="focus_upload" if S.focus_upload else "upload_box"):
             st.html(ui.step_html(1, "곡 넣기"))
+            tab_lib, tab_up = st.tabs(["라이브러리", "파일 올리기"])
+        with tab_lib:
+            if not LIB:
+                st.caption("라이브러리가 비어 있습니다. tools/build_library.py 로 곡을 추가하세요.")
+            q = st.text_input("곡 검색", key="lib_query", placeholder="곡명·아티스트", label_visibility="collapsed")
+            shown = library.search(LIB, q)
+            with st.container(key="lib_list", height=260 if len(shown) > 6 else "content"):
+                for e in shown:
+                    bpm = "—" if e.get("bpm") is None else f"{e['bpm']:.1f}"
+                    who = f" · {e['artist']}" if e.get("artist") else ""
+                    play = "" if e["sha256"] in LIB_AUDIO else " · 분석값만"
+                    dur = ui.fmt_duration(e.get("duration_sec"))
+                    st.checkbox(f"**{e['title']}**{who}  \n:gray[BPM {bpm} · {dur}{play}]",
+                                key=f"lib_pick_{e['sha256'][:12]}")
+            if q and not shown:
+                st.caption("검색 결과가 없습니다.")
+            n_pick = sum(1 for e in LIB if S.get(f"lib_pick_{e['sha256'][:12]}"))
+            l1, l2 = st.columns(2)
+            l1.button("전체", width="stretch", on_click=set_library_picks, args=(True, [e["sha256"] for e in shown]),
+                      disabled=not shown, key="lib_all")
+            l2.button("해제", width="stretch", on_click=set_library_picks, args=(False, [e["sha256"] for e in LIB]),
+                      disabled=not n_pick, key="lib_none")
+            st.button(f"{n_pick}곡으로 시작", type="primary", width="stretch", icon=":material/queue_music:",
+                      on_click=start_library, disabled=not n_pick, key="lib_start")
+            st.html('<p class="pl-help">라이브러리 곡은 미리 librosa로 분석한 실제 값입니다. '
+                    '저작권 음원은 공개 사이트에 올리지 않아 “분석값만” 곡은 재생되지 않습니다.</p>')
+        with tab_up:
             files = st.file_uploader(
                 "MP3·WAV 파일 (여러 개 가능)", type=["mp3", "wav"], accept_multiple_files=True,
                 key=f"uploader_{S.uploader_key}",
                 help=f"파일당 최대 {analysis.MAX_FILE_MB}MB. 음원은 이 앱이 실행 중인 서버(내 PC 또는 배포 서버)에서만 분석하고 외부 AI 서비스로 보내지 않으며, 분석 뒤 임시 파일을 지웁니다.")
             st.html(f'<p class="pl-help">파일당 최대 {analysis.MAX_FILE_MB}MB · 올린 순서가 원본 순서가 됩니다 · '
                     f'곡당 분석에 수 초~수십 초 걸립니다.</p>')
-            audio_store = uploaded_audio(files)
+            audio_store = {**LIB_AUDIO, **uploaded_audio(files)}
             c1, c2 = st.columns(2)
             analyze_clicked = c1.button("분석 시작", type="primary", width="stretch", disabled=not files,
                                         icon=":material/graphic_eq:")
@@ -362,7 +419,8 @@ with left:
         if ws and ws["kind"] == "measured" and not ws["from_json"] and files:
             new_files = [v["filename"] for sha, v in audio_store.items()
                          if sha[:12] not in ws["tracks"] and not any(e["filename"] == v["filename"] for e in ws["excluded"])]
-            removed = [t["title"] for t in ws["tracks"].values() if t["sha256"] not in audio_store]
+            removed = [t["title"] for t in ws["tracks"].values()
+                       if t.get("source") != "library" and t["sha256"] not in audio_store]
             if new_files or removed:
                 msg = "업로드 목록이 현재 작업과 다릅니다."
                 if new_files:
@@ -472,7 +530,8 @@ with main:
   <h3>곡을 넣거나 데모로 시작해 보세요</h3>
   <p class="pl-note">PLAYLINE은 곡마다 추정 BPM과 평균 RMS(소리 신호 크기)를 계산해, 고른 흐름에 맞는 순서를 제안합니다.</p>
   <ol>
-    <li><b>내 음악 분석</b> — 왼쪽 1단계에 MP3·WAV를 여러 개 올리고 '분석 시작'</li>
+    <li><b>라이브러리</b> — 왼쪽 1단계에서 미리 분석해 둔 곡을 골라 'N곡으로 시작' (파일 업로드 없음)</li>
+    <li><b>내 음악 분석</b> — '파일 올리기' 탭에 MP3·WAV를 여러 개 올리고 '분석 시작'</li>
     <li><b>데모 체험</b> — 음원 없이 예시 데이터로 사용 흐름만 체험 (재생 불가)</li>
     <li>흐름을 고르고 '자동 배열 실행' → 그래프 비교 → 위·아래로 직접 수정 → 버전 저장</li>
   </ol>
@@ -531,7 +590,7 @@ with main:
         a = audio_store[t["sha256"]]
         with st.container(border=True):
             st.markdown(f"**미리듣기** · {ui.esc(t['title'])}")
-            st.audio(a["data"], format=a["mime"], autoplay=False)
+            st.audio(a["data"] if a["data"] is not None else a["path"], format=a["mime"], autoplay=False)
 
     locks = locked_positions(ws)
     orig_pos = {t: i for i, t in enumerate(org, start=1)}
@@ -548,7 +607,9 @@ with main:
                       key=f"play_{tid}", icon=":material/play_arrow:" if playable else ":material/music_off:",
                       disabled=not playable, on_click=lambda x=tid: setattr(S, "preview_id", x),
                       help="이 곡을 위쪽 미리듣기 플레이어에 올립니다(자동재생 안 함)" if playable else
-                      ("데모는 음원이 없어 재생할 수 없습니다" if demo else "같은 음원 파일을 다시 올리면 연결됩니다"),
+                      ("데모는 음원이 없어 재생할 수 없습니다" if demo else
+                       "저작권 음원이라 공개 사이트에는 음원을 넣지 않았습니다(분석값만 제공)" if t.get("source") == "library"
+                       else "같은 음원 파일을 다시 올리면 연결됩니다"),
                       width="content")
             up_ok = i > 0 and i not in locks and (i - 1) not in locks
             down_ok = i < n - 1 and i not in locks and (i + 1) not in locks

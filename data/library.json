@@ -1,0 +1,34 @@
+{
+  "app": "PLAYLINE",
+  "about": "미리 librosa로 분석한 곡의 실제 분석값. 음원 파일은 library/ 폴더에 따로 두며, 저작권 음원은 공개 저장소에 포함하지 않는다.",
+  "tracks": [
+    {
+      "title": "Nostalgia",
+      "artist": null,
+      "genre": null,
+      "filename": "Nostalgia.mp3",
+      "sha256": "e714b37819b001db2ecb206426e1702f20381b39d67f24bf22911e1a1ae7110d",
+      "size_bytes": 4734809,
+      "duration_sec": 195.02,
+      "bpm": 99.38,
+      "rms": 0.255877,
+      "status": "ok",
+      "analyzed_on": "2026-11-24",
+      "analyzer": "librosa beat_track + rms (sr=22050)"
+    },
+    {
+      "title": "Zombie",
+      "artist": null,
+      "genre": null,
+      "filename": "zombie_KLICKAUD.mp3",
+      "sha256": "e29f8e77c3fe4ac76ece54a190e1e1b71d61470c0ddc4edbd9c680406f18c03f",
+      "size_bytes": 3318738,
+      "duration_sec": 207.35,
+      "bpm": 143.55,
+      "rms": 0.120841,
+      "status": "ok",
+      "analyzed_on": "2026-11-24",
+      "analyzer": "librosa beat_track + rms (sr=22050)"
+    }
+  ]
+}

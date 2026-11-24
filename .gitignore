@@ -6,3 +6,5 @@ test_audio/
 *.wav
 *.pdf
 .claude/
+# 라이브러리 음원(저작권) — 분석값(data/library.json)만 공개
+library/

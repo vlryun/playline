@@ -228,8 +228,11 @@ def track_row_html(pos: int, track: dict, bpm, score: float, *, demo: bool, lock
     if demo and track.get("category"):
         parts.append(esc(track["category"]))
     if not demo:
-        parts.append(esc(track.get("filename") or ""))
-        if not has_audio:
+        if track.get("source") != "library":
+            parts.append(esc(track.get("filename") or ""))
+        if track.get("source") == "library":
+            parts.append("라이브러리" if has_audio else "라이브러리 · 분석값만")
+        elif not has_audio:
             parts.append("음원 미연결")
     if orig_pos is not None and orig_pos != pos:
         cls = "pl-moved-up" if orig_pos > pos else "pl-moved-down"
