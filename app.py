@@ -574,9 +574,8 @@ with left:
                 st.button(f"플레이리스트를 이 {n_pick}곡으로 바꾸기", width="stretch", on_click=start_library,
                           kwargs={"replace": True}, disabled=not n_pick, key="lib_replace", type="tertiary",
                           icon=":material/swap_horiz:")
-            st.html('<p class="pl-help">미리 측정해 둔 빠르기·소리 크기로 바로 순서를 추천해요. '
-                    '“듣기 불가” 곡은 저작권 때문에 음원을 두지 않은 곡이에요. 같은 음악 파일을 \'파일 올리기\'에 '
-                    '올리면 파일 내용이 같을 때만 연결돼서 들을 수 있어요(제목만 같으면 연결하지 않아요).</p>')
+            st.html('<p class="pl-help">모두 바로 들을 수 있는 곡이에요. 미리 측정해 둔 빠르기·소리 크기로 '
+                    '바로 순서를 추천해요. 내 음악은 \'파일 올리기\'에서 같은 플레이리스트에 더할 수 있어요.</p>')
             credited = [e for e in LIB if e.get("credit")]
             if credited:
                 with st.expander("음악 출처·라이선스", icon=":material/license:"):

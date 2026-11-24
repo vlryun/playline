@@ -103,31 +103,6 @@
       "analysis_scope": "full"
     },
     {
-      "title": "Nostalgia",
-      "genre": null,
-      "filename": "Nostalgia.mp3",
-      "sha256": "e714b37819b001db2ecb206426e1702f20381b39d67f24bf22911e1a1ae7110d",
-      "size_bytes": 4734809,
-      "duration_sec": 195.02,
-      "bpm": 99.38,
-      "rms": 0.255877,
-      "status": "ok",
-      "analyzed_on": "2026-11-24",
-      "analyzer": "librosa beat_track + rms (sr=22050)",
-      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d9/e1/62/d9e162a7-7125-6cd0-2df5-a4a3c909c285/cover_KM0025140_1.jpg/600x600bb.jpg",
-      "cover_source": "Apple iTunes Search API",
-      "cover_match": {
-        "track": "Nostalgia",
-        "artist": "BIG Naughty",
-        "album": "Nostalgia - Single",
-        "url": "https://music.apple.com/us/album/nostalgia/6805367597?i=6805367598&uo=4",
-        "rule": "곡명 + 길이(±3초) + 파일 속 커버 이미지 일치",
-        "checked_on": "2026-11-24"
-      },
-      "artist": "BIG Naughty",
-      "artist_source": "Apple iTunes Search API (곡명 + 길이(±3초) + 파일 속 커버 이미지 일치)"
-    },
-    {
       "title": "Pixel Peeker Polka - faster",
       "artist": "Kevin MacLeod",
       "genre": null,
@@ -186,19 +161,6 @@
       "credit": "\"Volatile Reaction\" Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0\nhttp://creativecommons.org/licenses/by/4.0/",
       "audio_in_repo": true,
       "analysis_scope": "full"
-    },
-    {
-      "title": "Zombie",
-      "genre": null,
-      "filename": "zombie_KLICKAUD.mp3",
-      "sha256": "e29f8e77c3fe4ac76ece54a190e1e1b71d61470c0ddc4edbd9c680406f18c03f",
-      "size_bytes": 3318738,
-      "duration_sec": 207.35,
-      "bpm": 143.55,
-      "rms": 0.120841,
-      "status": "ok",
-      "analyzed_on": "2026-11-24",
-      "analyzer": "librosa beat_track + rms (sr=22050)"
     }
   ]
 }
