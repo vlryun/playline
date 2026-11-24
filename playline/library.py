@@ -63,7 +63,7 @@ def to_track(entry: dict) -> dict:
         "bpm_raw": None if bpm is None else float(bpm), "bpm_factor": 1.0, "rms": float(entry["rms"]),
         "status": "ok" if bpm is not None else "bpm_failed", "category": entry.get("genre") or None,
         "bpm_alternatives": [] if bpm is None else [round(bpm / 2, 1), round(bpm * 2, 1)],
-        "message": None, "source": "library", "cover_url": safe_cover_url(entry.get("cover_url")),
+        "message": None, "source": "library", "analysis_scope": entry.get("analysis_scope") or "full", "cover_url": safe_cover_url(entry.get("cover_url")),
     }
 
 

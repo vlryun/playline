@@ -46,6 +46,64 @@ class AppFlowTest(unittest.TestCase):
         # 분석값은 라이브러리 파일 값 그대로 (다시 분석하지 않음)
         self.assertEqual(at.session_state.analysis_runs, 0)
 
+    def test_library_add_again_no_duplicate_and_replace(self):
+        from playline.library import load_library
+        lib = load_library()
+        if len(lib) < 2:
+            self.skipTest("라이브러리 곡이 2곡 미만")
+        at = fresh()
+        at.button(key="lib_all").click().run()
+        at.button(key="lib_start").click().run()
+        ws = at.session_state.ws
+        self.assertEqual(len(ws["original"]), len(lib))
+        # 작업 중에는 '추가' 버튼, 같은 곡을 다시 추가해도 중복되지 않음
+        at.button(key="lib_all").click().run()
+        self.assertIn("추가", at.button(key="lib_start").label)
+        at.button(key="lib_start").click().run()
+        self.assertEqual(len(at.session_state.ws["original"]), len(lib))
+        # 바꾸기: 한 곡만 고르면 그 곡만 남는다
+        first = lib[0]["sha256"][:12]
+        at.checkbox(key=f"lib_pick_{first}").check().run()
+        at.button(key="lib_replace").click().run()
+        self.assertEqual(at.session_state.ws["original"], [first])
+
+    def test_remove_keeps_other_values(self):
+        from playline.library import load_library
+        lib = load_library()
+        if len(lib) < 2:
+            self.skipTest("라이브러리 곡이 2곡 미만")
+        at = fresh()
+        at.button(key="lib_all").click().run()
+        at.button(key="lib_start").click().run()
+        ws = at.session_state.ws
+        keep, drop = ws["original"][0], ws["original"][1]
+        ws["tracks"][keep]["bpm_factor"] = 0.5
+        at.button(key=f"rm_{drop}").click().run()
+        self.assertEqual(len(at.exception), 0, [e.value for e in at.exception])
+        ws = at.session_state.ws
+        self.assertNotIn(drop, ws["tracks"])
+        self.assertEqual(ws["tracks"][keep]["bpm_factor"], 0.5)
+        self.assertNotIn(drop, ws["current"])
+
+    def test_all_nine_flows_keep_pins(self):
+        from playline.arrange import MODES
+        self.assertEqual(list(MODES), ["rise", "fall", "arc", "valley", "wave", "early", "finale", "plateau", "workout"])
+        at = fresh()
+        at.button(key="hero_demo").click().run()
+        ws = at.session_state.ws
+        first, last = ws["original"][3], ws["original"][7]
+        at.selectbox(key="pin_first").select(first).run()
+        at.selectbox(key="pin_last").select(last).run()
+        for mode in MODES:
+            at.button(key=f"mode_btn_{mode}").click().run()
+            at.button(key="arrange_btn").click().run()
+            self.assertEqual(len(at.exception), 0, [e.value for e in at.exception])
+            cur = at.session_state.ws["current"]
+            self.assertEqual(at.session_state.mode, mode)
+            self.assertEqual(cur[0], first, mode)
+            self.assertEqual(cur[-1], last, mode)
+            self.assertEqual(sorted(cur), sorted(ws["original"]))
+
     def test_demo_flow(self):
         at = fresh()
         at.button(key="hero_demo").click().run()

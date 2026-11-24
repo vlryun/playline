@@ -12,7 +12,9 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from playline import analysis, arrange as ar, covers, library, storage, ui
+import streamlit.components.v1 as components
+
+from playline import analysis, arrange as ar, covers, library, player, storage, ui
 from playline.demo import demo_track, load_demo
 
 st.set_page_config(page_title="PLAYLINE · 플레이라인", page_icon="〰", layout="wide",
@@ -36,6 +38,9 @@ DEFAULTS = {
     "flash": [],
     "ws_seq": 0,
     "covers": {},               # sha256 -> 업로드 음원에서 꺼낸 커버 썸네일(data URI)
+    "upload_audio": {},         # sha256 -> 이 세션에 올린 음원 {filename, data, mime, size} (탭을 바꿔도 유지)
+    "play_cmd": None,           # 플레이어에 보낼 명령 {"nonce", "action", "id"}
+    "play_nonce": 0,
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -139,6 +144,124 @@ def uploaded_audio(files) -> dict[str, dict]:
     return out
 
 
+def audio_store() -> dict[str, dict]:
+    """재생할 수 있는 음원: 서버에 있는 라이브러리 파일 + 이 세션에 올린 파일 (sha256 기준)."""
+    return {**LIB_AUDIO, **S.upload_audio}
+
+
+def compute_suggestion(ws) -> list[str] | None:
+    scores = ar.compute_scores(score_inputs(ws), S.bpm_weight_pct / 100)
+    pf = S.pin_first if S.pin_first in ws["tracks"] else None
+    pl = S.pin_last if S.pin_last in ws["tracks"] else None
+    res = ar.arrange(ws["original"], scores, S.mode, pf, pl, float(S.smooth))
+    return None if res.error else res.order
+
+
+def unique_title(title: str, taken: set[str]) -> str:
+    if title not in taken:
+        return title
+    n = 2
+    while f"{title} ({n})" in taken:
+        n += 1
+    return f"{title} ({n})"
+
+
+def add_tracks(tracks: list[dict], excluded: list[dict] | None = None) -> tuple[int, int]:
+    """곡을 지금 플레이리스트에 더한다. 이미 있는 곡(같은 파일 내용·같은 라이브러리 곡)은 건너뛴다.
+
+    규칙: 원래 순서 = 담은 순서. 지금 순서가 추천 순서 그대로였다면 추천을 새로 만들어 따르고,
+    직접 바꾼 순서였다면 그 순서를 지키고 새 곡을 끝(마지막 곡 고정이 있으면 그 앞)에 붙인다.
+    """
+    ws = S.ws
+    if ws is None or ws["kind"] == "demo":
+        if ws is not None and ws["kind"] == "demo":
+            flash("info", "체험용 예시 곡을 비우고 진짜 곡으로 새 플레이리스트를 시작했어요.")
+        S.ws = new_ws("measured", [], excluded=excluded or [])
+        ws = S.ws
+    else:
+        ws["excluded"] = (ws.get("excluded") or []) + (excluded or [])
+    followed = bool(ws["suggested"]) and ws["current"] == ws["suggested"]
+    taken = {t["title"] for t in ws["tracks"].values()}
+    added = skipped = 0
+    new_ids = []
+    for t in tracks:
+        if t["id"] in ws["tracks"]:
+            skipped += 1
+            continue
+        t["title"] = unique_title(t["title"], taken)
+        taken.add(t["title"])
+        ws["tracks"][t["id"]] = t
+        ws["original"].append(t["id"])
+        new_ids.append(t["id"])
+        added += 1
+    if not added:
+        return added, skipped
+    sug = compute_suggestion(ws)
+    if followed or not ws["current"]:
+        ws["current"] = list(sug) if sug else list(ws["original"])
+    else:
+        cur = list(ws["current"])
+        at = len(cur) - 1 if S.pin_last and cur and cur[-1] == S.pin_last else len(cur)
+        ws["current"] = cur[:at] + new_ids + cur[at:]
+    ws["suggested"] = sug
+    ws["suggested_key"] = suggestion_key(ws) if sug else None
+    return added, skipped
+
+
+def remove_track(tid: str):
+    """곡 하나만 뺀다. 다른 곡의 분석값·빠르기 보정·설정은 그대로 둔다."""
+    ws = S.ws
+    if not ws or tid not in ws["tracks"]:
+        return
+    title = ws["tracks"][tid]["title"]
+    followed = bool(ws["suggested"]) and ws["current"] == ws["suggested"]
+    del ws["tracks"][tid]
+    ws["original"] = [x for x in ws["original"] if x != tid]
+    ws["current"] = [x for x in ws["current"] if x != tid]
+    reset_pins_if_missing()
+    if ws["original"]:
+        sug = compute_suggestion(ws)
+        ws["suggested"] = sug
+        ws["suggested_key"] = suggestion_key(ws) if sug else None
+        if followed and sug:
+            ws["current"] = list(sug)
+    else:
+        ws["suggested"], ws["suggested_key"] = None, None
+    flash("info", f"'{title}'을(를) 플레이리스트에서 뺐어요. 다른 곡의 값과 설정은 그대로예요.")
+
+
+def play_track(tid: str):
+    S.play_nonce += 1
+    S.play_cmd = {"nonce": S.play_nonce, "action": "play", "id": tid}
+
+
+def render_player(ws, store):
+    """화면 아래 고정 플레이어에 지금 플레이리스트를 넘긴다(자동 재생 없음)."""
+    if ws is None or ws["kind"] == "demo":
+        order_sets = {"current": [], "suggested": [], "original": []}
+        tracks = {}
+    else:
+        tracks = ws["tracks"]
+        order_sets = {"current": ws["current"], "suggested": ws["suggested"] or [], "original": ws["original"]}
+    urls = {}
+    for t in tracks.values():
+        sha = t.get("sha256")
+        if sha and sha in store:
+            u = player.media_url(sha, store[sha])
+            if u:
+                urls[sha] = u
+    cov = {tid: cover_for(t) for tid, t in tracks.items()}
+    payload = {"queues": {k: player.queue_items(v, tracks, urls, cov) for k, v in order_sets.items()},
+               "labels": {"current": "지금 순서로 듣기", "suggested": "추천 순서로 듣기", "original": "원래 순서로 듣기"},
+               "cmd": S.play_cmd}
+    html = player.component_html(payload)
+    with st.container(key="player_host"):
+        if hasattr(st, "iframe"):
+            st.iframe(html, height=1)
+        else:  # 오래된 Streamlit
+            components.html(html, height=0)
+
+
 # ───────────────────────── 동작 (콜백) ─────────────────────────
 
 def start_demo():
@@ -152,20 +275,24 @@ def start_demo():
     flash("info", "체험 모드를 시작했어요. 곡 제목은 실제 차트에서 가져왔지만 빠르기·소리 크기는 예시 값이에요.")
 
 
-def start_library():
+def start_library(replace: bool = False):
     picked = [e for e in LIB if S.get(f"lib_pick_{e['sha256'][:12]}")]
     if not picked:
         flash("warning", "라이브러리에서 곡을 한 곡 이상 골라 주세요.")
         return
-    prev = S.ws
-    tracks = [library.to_track(e) for e in picked]
-    keep = prev["versions"] if prev and prev["kind"] == "measured" and set(prev["tracks"]) == {t["id"] for t in tracks} else []
-    S.ws = new_ws("measured", tracks, versions=keep)
-    reset_pins_if_missing()
-    S.preview_id = None
+    if replace and S.ws is not None:
+        keep_versions = S.ws["versions"] if S.ws["kind"] == "measured" else []
+        S.ws = new_ws("measured", [], versions=keep_versions)
+        reset_pins_if_missing()
+    added, skipped = add_tracks([library.to_track(e) for e in picked])
+    set_library_picks(False, [e["sha256"] for e in picked])
     S.focus_upload = False
-    run_arrange(silent=True)
-    flash("success", f"{len(tracks)}곡을 담았어요. 추천 순서를 만들어 뒀으니 아래에서 확인해 보세요.")
+    msg = f"{added}곡을 플레이리스트에 담았어요." if added else "고른 곡은 이미 모두 담겨 있어요."
+    if skipped and added:
+        msg += f" 이미 담긴 {skipped}곡은 한 번만 넣었어요."
+    if replace:
+        msg = f"플레이리스트를 고른 {added}곡으로 바꿨어요."
+    flash("success" if added else "info", msg)
 
 
 def set_library_picks(value: bool, shas: list[str]):
@@ -178,74 +305,73 @@ def focus_upload():
 
 
 def run_analysis(files):
-    audio = uploaded_audio(files)
+    """올린 파일을 분석해 지금 플레이리스트에 더한다(라이브러리에서 담은 곡은 그대로 둔다)."""
     if not files:
         flash("warning", "먼저 MP3나 WAV 파일을 올려 주세요.")
         return
-    prev = S.ws
+    ws = S.ws
     tracks, excluded, seen = [], [], {}
-    titles: dict[str, int] = {}
+    linked = 0
     progress = st.progress(0.0, text="분석 준비 중…")
     for i, f in enumerate(files, start=1):
-        sha = S.sha_by_file_id.get(f.file_id) or analysis.file_sha256(f.getvalue())
+        data = f.getvalue()
+        sha = S.sha_by_file_id.get(f.file_id) or analysis.file_sha256(data)
+        S.sha_by_file_id[f.file_id] = sha
         if sha in seen:
             excluded.append({"filename": f.name, "status": "duplicate",
-                             "message": f"'{seen[sha]}'과(와) 내용이 같은 파일이라 한 번만 넣었습니다."})
+                             "message": f"'{seen[sha]}'과(와) 내용이 같은 파일이라 한 번만 넣었어요."})
             progress.progress(i / len(files), text=f"{i}/{len(files)} · 중복 건너뜀: {f.name}")
             continue
         seen[sha] = f.name
+        ext = "." + f.name.rsplit(".", 1)[-1].lower() if "." in f.name else ""
+        if ws is not None and ws["kind"] != "demo" and sha[:12] in ws["tracks"]:
+            # 이미 담긴 곡(라이브러리 곡이나 작업 파일에서 불러온 곡)과 내용이 같은 파일 → 새로 넣지 않고 음원만 연결
+            S.upload_audio[sha] = {"filename": f.name, "data": data, "mime": MIME.get(ext, "audio/mpeg"), "size": len(data)}
+            linked += 1
+            progress.progress(i / len(files), text=f"{i}/{len(files)} · 이미 담긴 곡과 연결: {f.name}")
+            continue
         cached = S.analysis_cache.get(sha)
         if cached is not None:
             res = cached
             progress.progress(i / len(files), text=f"{i}/{len(files)} · 이전 분석 결과 사용: {f.name}")
         else:
             progress.progress((i - 1) / len(files), text=f"{i}/{len(files)} · 분석 중: {f.name}")
-            res = analysis.analyze_bytes(f.getvalue(), f.name)
+            res = analysis.analyze_bytes(data, f.name)
             S.analysis_runs += 1
-            if sha not in S.covers:
-                uri = covers.cover_uri_from_audio(f.getvalue())
-                if uri:
-                    S.covers[sha] = uri
             if res.status != "error":  # 오류는 다시 시도할 수 있도록 캐시하지 않음
                 S.analysis_cache[sha] = res
             progress.progress(i / len(files), text=f"{i}/{len(files)} · 완료: {f.name}")
+        if sha not in S.covers:
+            uri = covers.cover_uri_from_audio(data)
+            if uri:
+                S.covers[sha] = uri
         if not res.usable:
             excluded.append({"filename": f.name, "status": res.status, "message": res.message})
             continue
-        title = analysis.title_from_filename(f.name)
-        titles[title] = titles.get(title, 0) + 1
-        if titles[title] > 1:
-            title = f"{title} ({titles[title]})"
+        S.upload_audio[sha] = {"filename": f.name, "data": data, "mime": MIME.get(ext, "audio/mpeg"), "size": len(data)}
         tracks.append({
-            "id": sha[:12], "title": title, "artist": None, "filename": f.name, "sha256": sha,
-            "size_bytes": res.size_bytes, "duration_sec": res.duration_sec, "bpm_raw": res.bpm,
+            "id": sha[:12], "title": analysis.title_from_filename(f.name), "artist": None, "filename": f.name,
+            "sha256": sha, "size_bytes": res.size_bytes, "duration_sec": res.duration_sec, "bpm_raw": res.bpm,
             "bpm_factor": 1.0, "rms": res.rms_mean, "status": res.status, "category": None,
-            "bpm_alternatives": res.bpm_alternatives, "message": res.message,
+            "bpm_alternatives": res.bpm_alternatives, "message": res.message, "source": "upload",
         })
     progress.empty()
 
-    if not tracks:
+    added, skipped = add_tracks(tracks, excluded) if (tracks or excluded) else (0, 0)
+    parts = []
+    if added:
+        parts.append(f"{added}곡을 분석해서 플레이리스트에 더했어요")
+    if linked:
+        parts.append(f"{linked}곡은 이미 담긴 곡과 같은 파일이라 듣기만 연결했어요")
+    if skipped:
+        parts.append(f"{skipped}곡은 이미 담겨 있어 한 번만 넣었어요")
+    if parts:
+        flash("success", ". ".join(parts) + ". 먼저 담아 둔 곡은 그대로예요.")
+    elif excluded:
         flash("error", "분석할 수 있는 곡이 없어요. 아래 '넣지 못한 파일'에서 이유를 확인해 주세요.")
-        S.ws = new_ws("measured", [], excluded=excluded)
-        return
-
-    # 같은 곡 구성이면 BPM 해석·순서·버전을 유지하고, 바뀌었으면 순서를 새로 시작한다
-    if prev and prev["kind"] == "measured" and set(prev["tracks"]) == {t["id"] for t in tracks}:
-        for t in tracks:
-            t["bpm_factor"] = prev["tracks"][t["id"]].get("bpm_factor", 1.0)
-        ws = new_ws("measured", tracks, excluded=excluded, versions=prev["versions"])
-        ws["current"] = [t for t in prev["current"]]
-        ws["suggested"], ws["suggested_key"] = prev["suggested"], prev["suggested_key"]
-        S.ws = ws
-        flash("success", f"{len(tracks)}곡을 다시 불러왔어요. 곡 목록이 같아서 지금 순서와 저장한 순서는 그대로 뒀어요.")
-    else:
-        if prev and prev["kind"] == "demo":
-            flash("info", "체험용 예시 곡을 비우고 올린 곡으로 바꿨어요.")
-        keep = [v for v in (prev or {}).get("versions", [])] if prev and prev["kind"] == "measured" else []
-        S.ws = new_ws("measured", tracks, excluded=excluded, versions=keep)
-        reset_pins_if_missing()
-        run_arrange(silent=True)
-        flash("success", f"{len(tracks)}곡을 분석했어요. 올린 순서를 '원래 순서'로 두고, 추천 순서도 만들어 뒀어요.")
+        if S.ws is None:
+            S.ws = new_ws("measured", [], excluded=excluded)
+    S.uploader_key += 1       # 올린 파일은 플레이리스트로 옮겼으니 업로드 칸은 비운다
     S.focus_upload = False
 
 
@@ -324,6 +450,8 @@ def import_project(project):
     tracks = list(project["tracks"].values())
     for t in tracks:
         t["is_demo"] = project["data_kind"] == "demo"
+        if not t.get("source"):
+            t["source"] = "demo" if t["is_demo"] else "upload"
     ws = new_ws(project["data_kind"], [project["tracks"][t] for t in project["original"]],
                 versions=project["versions"], from_json=True)
     ws["current"] = project["current"]
@@ -333,7 +461,8 @@ def import_project(project):
     reset_pins_if_missing()
     ws["suggested_key"] = suggestion_key(ws) if project["suggested"] else None
     S.json_key += 1
-    flash("success", "JSON에서 곡 정보·순서·설정·버전을 불러왔습니다. 음원은 포함되어 있지 않습니다.")
+    flash("success", "작업 파일에서 곡 정보·순서·설정·저장한 순서를 불러왔어요. 업로드 음원은 들어 있지 않아서, "
+                     "들으려면 '파일 올리기'에 같은 파일을 다시 올려 주세요(내용이 같을 때만 연결돼요).")
 
 
 def apply_demo_edit(df: pd.DataFrame):
@@ -394,60 +523,63 @@ with left:
         with st.container(key="focus_upload" if S.focus_upload else "upload_box"):
             st.html(ui.step_html(1, "곡 넣기"))
             tab_lib, tab_up = st.tabs(["라이브러리", "파일 올리기"])
+        in_list = set(S.ws["tracks"]) if S.ws and S.ws["kind"] != "demo" else set()
+        working = bool(in_list)
         with tab_lib:
             if not LIB:
-                st.caption("라이브러리가 비어 있습니다. tools/build_library.py 로 곡을 추가하세요.")
+                st.caption("라이브러리가 비어 있어요. tools/build_library.py 로 곡을 추가할 수 있어요.")
             q = st.text_input("곡 검색", key="lib_query", placeholder="곡 제목·가수 검색", label_visibility="collapsed")
             shown = library.search(LIB, q)
-            with st.container(key="lib_list", height=260 if len(shown) > 6 else "content"):
+            genres = sorted({e["genre"] for e in LIB if e.get("genre")})
+            if genres:
+                g = st.pills("장르", genres, key="lib_genre", selection_mode="single", label_visibility="collapsed")
+                if g:
+                    shown = [e for e in shown if e.get("genre") == g]
+            with st.container(key="lib_list", height=280 if len(shown) > 6 else "content"):
                 for e in shown:
-                    bpm = "—" if e.get("bpm") is None else f"{e['bpm']:.1f}"
                     who = f" · {e['artist']}" if e.get("artist") else ""
-                    play = "" if e["sha256"] in LIB_AUDIO else " · 듣기 불가"
                     dur = ui.fmt_duration(e.get("duration_sec"))
-                    st.checkbox(f"**{e['title']}**{who}  \n:gray[빠르기 {bpm} · {dur}{play}]",
+                    playable = e["sha256"] in audio_store()
+                    state = ":green[재생 가능]" if playable else ":orange[듣기 불가 · 측정값만]"
+                    mark = " · :violet[담김]" if e["sha256"][:12] in in_list else ""
+                    st.checkbox(f"**{e['title']}**{who}  \n:gray[{dur}] · {state}{mark}",
                                 key=f"lib_pick_{e['sha256'][:12]}")
             if q and not shown:
-                st.caption("검색 결과가 없습니다.")
+                st.caption("검색 결과가 없어요.")
             n_pick = sum(1 for e in LIB if S.get(f"lib_pick_{e['sha256'][:12]}"))
             l1, l2 = st.columns(2)
             l1.button("전체", width="stretch", on_click=set_library_picks, args=(True, [e["sha256"] for e in shown]),
                       disabled=not shown, key="lib_all")
             l2.button("해제", width="stretch", on_click=set_library_picks, args=(False, [e["sha256"] for e in LIB]),
                       disabled=not n_pick, key="lib_none")
-            st.button(f"{n_pick}곡으로 시작", type="primary", width="stretch", icon=":material/queue_music:",
-                      on_click=start_library, disabled=not n_pick, key="lib_start")
-            st.html('<p class="pl-help">곡을 고르면 미리 측정해 둔 빠르기·소리 크기로 바로 순서를 추천해요. '
-                    '저작권 때문에 “듣기 불가” 곡은 이 사이트에서 재생되지 않아요.</p>')
+            st.button(f"선택한 {n_pick}곡 추가" if working else f"{n_pick}곡으로 시작", type="primary", width="stretch",
+                      icon=":material/playlist_add:" if working else ":material/queue_music:",
+                      on_click=start_library, disabled=not n_pick, key="lib_start",
+                      help="지금 플레이리스트에 더해요. 올린 곡과 이미 담긴 곡은 그대로 있어요." if working else None)
+            if working:
+                st.button(f"플레이리스트를 이 {n_pick}곡으로 바꾸기", width="stretch", on_click=start_library,
+                          kwargs={"replace": True}, disabled=not n_pick, key="lib_replace", type="tertiary",
+                          icon=":material/swap_horiz:")
+            st.html('<p class="pl-help">미리 측정해 둔 빠르기·소리 크기로 바로 순서를 추천해요. '
+                    '“듣기 불가” 곡은 저작권 때문에 음원을 두지 않은 곡이에요. 같은 음악 파일을 \'파일 올리기\'에 '
+                    '올리면 파일 내용이 같을 때만 연결돼서 들을 수 있어요(제목만 같으면 연결하지 않아요).</p>')
         with tab_up:
             files = st.file_uploader(
                 "MP3·WAV 파일 (여러 개 가능)", type=["mp3", "wav"], accept_multiple_files=True,
                 key=f"uploader_{S.uploader_key}",
                 help=f"파일당 최대 {analysis.MAX_FILE_MB}MB. 올린 곡은 이 앱 안에서만 분석하고 외부 AI 서비스로 보내지 않아요. 분석이 끝나면 임시 파일은 바로 지워요.")
-            st.html(f'<p class="pl-help">파일당 최대 {analysis.MAX_FILE_MB}MB · 올린 순서가 “원래 순서”가 돼요 · '
-                    f'곡마다 분석에 몇 초~수십 초 걸려요.</p>')
-            audio_store = {**LIB_AUDIO, **uploaded_audio(files)}
+            st.html(f'<p class="pl-help">파일당 최대 {analysis.MAX_FILE_MB}MB · 올린 곡은 지금 플레이리스트 <b>뒤에 더해져요</b> · '
+                    f'라이브러리에서 담은 곡은 그대로 있어요 · 곡마다 분석에 몇 초~수십 초 걸려요 · '
+                    f'올린 파일은 다른 사람에게 공개되지 않아요.</p>')
             c1, c2 = st.columns(2)
-            analyze_clicked = c1.button("분석 시작", type="primary", width="stretch", disabled=not files,
-                                        icon=":material/graphic_eq:")
+            analyze_clicked = c1.button("분석해서 추가" if working else "분석 시작", type="primary", width="stretch",
+                                        disabled=not files, icon=":material/graphic_eq:", key="analyze_btn")
             c2.button("데모 체험", width="stretch", on_click=start_demo, key="panel_demo")
+            if S.upload_audio:
+                st.caption(f"이 창에 올려 둔 음악 {len(S.upload_audio)}개 · 새로고침하면 사라져요.")
         if analyze_clicked:
             run_analysis(files)
             st.rerun()
-
-        ws = S.ws
-        if ws and ws["kind"] == "measured" and not ws["from_json"] and files:
-            new_files = [v["filename"] for sha, v in audio_store.items()
-                         if sha[:12] not in ws["tracks"] and not any(e["filename"] == v["filename"] for e in ws["excluded"])]
-            removed = [t["title"] for t in ws["tracks"].values()
-                       if t.get("source") != "library" and t["sha256"] not in audio_store]
-            if new_files or removed:
-                msg = "업로드 목록이 현재 작업과 다릅니다."
-                if new_files:
-                    msg += f" 새 파일 {len(new_files)}개."
-                if removed:
-                    msg += f" 목록에서 빠진 곡 {len(removed)}개."
-                st.warning(msg + " '분석 시작'을 눌러야 반영돼요(이미 분석한 곡은 다시 분석하지 않아요).")
 
         st.divider()
         st.html(ui.step_html(2, "어떤 흐름으로 들을까요?"))
@@ -511,7 +643,7 @@ def render_import_and_help():
             if errs:
                 st.error("열 수 없는 파일이에요.\n\n" + "\n".join(f"- {e}" for e in errs[:12]))
             else:
-                m = storage.match_audio(project["tracks"], audio_store) if project["data_kind"] == "measured" else None
+                m = storage.match_audio(project["tracks"], audio_store()) if project["data_kind"] == "measured" else None
                 kind_txt = "실제 측정값" if project["data_kind"] == "measured" else "체험용 예시 값"
                 st.success(f"열 수 있어요 · {len(project['tracks'])}곡 · {kind_txt} · 저장한 순서 {len(project['versions'])}개")
                 if m:
@@ -522,7 +654,7 @@ def render_import_and_help():
                                    ", ".join(project["tracks"][t]["filename"] or t for t in m["missing"][:10]))
                     if m["extra"]:
                         st.info("작업 파일에 없는 곡은 이번 작업에 넣지 않아요: " +
-                                ", ".join(audio_store[s]["filename"] for s in m["extra"][:10]))
+                                ", ".join(audio_store()[s]["filename"] for s in m["extra"][:10]))
                     for tid, newname in m["renamed"]:
                         st.caption(f"'{project['tracks'][tid]['filename']}' → 내용이 같은 '{newname}'과 연결했어요")
                 # 설정 위젯 값을 바꿔야 하므로 위젯이 만들어지기 전에 실행되는 콜백으로 처리
@@ -562,6 +694,7 @@ with main:
             for e in ws["excluded"]:
                 st.warning(f"**{e['filename']}** — {e['message']}")
         render_import_and_help()
+        render_player(None, {})
         st.stop()
 
     tracks = ws["tracks"]
@@ -570,8 +703,10 @@ with main:
     raw = {t: {"bpm": storage.effective_bpm(tracks[t]), "rms": tracks[t]["rms"], "score": scores[t].score}
            for t in ws["original"]}
 
+    store = audio_store()
+
     def has_audio(t):
-        return bool(tracks[t].get("sha256")) and tracks[t]["sha256"] in audio_store
+        return bool(tracks[t].get("sha256")) and tracks[t]["sha256"] in store
 
     # 상태 표시
     cur, sug, org = ws["current"], ws["suggested"], ws["original"]
@@ -606,12 +741,7 @@ with main:
     b3.caption("화살표로 곡을 위아래로 옮기면 아래 그래프가 바로 바뀌어요. "
                "흐름 점수는 이 목록 안에서 곡끼리 비교한 값이에요.")
 
-    if S.preview_id in tracks and has_audio(S.preview_id):
-        t = tracks[S.preview_id]
-        a = audio_store[t["sha256"]]
-        with st.container(border=True):
-            st.markdown(f"**지금 듣는 곡** · {ui.esc(t['title'])}")
-            st.audio(a["data"] if a["data"] is not None else a["path"], format=a["mime"], autoplay=False)
+    render_player(ws, store)
 
     locks = locked_positions(ws)
     orig_pos = {t: i for i, t in enumerate(org, start=1)}
@@ -627,7 +757,7 @@ with main:
             playable = has_audio(tid)
             st.button("재생" if playable else "",
                       key=f"play_{tid}", icon=":material/play_arrow:" if playable else ":material/music_off:",
-                      disabled=not playable, on_click=lambda x=tid: setattr(S, "preview_id", x),
+                      disabled=not playable, on_click=play_track, args=(tid,),
                       help="위쪽 플레이어에 이 곡을 올려요(바로 재생되지는 않아요)" if playable else
                       ("체험 모드는 음악 파일이 없어 들을 수 없어요" if demo else
                        "저작권 때문에 이 사이트에서는 들을 수 없어요(측정값만 있어요)" if t.get("source") == "library"
@@ -639,6 +769,9 @@ with main:
                       disabled=not up_ok, help="한 칸 위로")
             st.button("", key=f"down_{tid}", icon=":material/arrow_downward:", on_click=move_track, args=(i, 1),
                       disabled=not down_ok, help="한 칸 아래로")
+            if not demo:
+                st.button("", key=f"rm_{tid}", icon=":material/close:", on_click=remove_track, args=(tid,),
+                          help="플레이리스트에서 빼기 (다른 곡 값·설정은 그대로)", type="tertiary")
 
     if ws["excluded"]:
         with st.expander(f"넣지 못한 파일 {len(ws['excluded'])}개", icon=":material/error:", expanded=True):
@@ -653,13 +786,16 @@ with main:
         rows = []
         for tid in org:
             t = tracks[tid]
-            rows.append({"곡명": t["title"], "길이": ui.fmt_duration(t.get("duration_sec")),
+            src = "데모" if demo else ("제공 음악" if t.get("source") == "library" else "내 업로드")
+            rows.append({"곡명": t["title"], "출처": src, "들을 수 있음": "예" if has_audio(tid) else "아니요",
+                         "측정값 출처": storage.analysis_source_label(t, demo),
+                         "길이": ui.fmt_duration(t.get("duration_sec")),
                          "잰 빠르기": t.get("bpm_raw"), "빠르기 바로잡기": factor_label.get(t.get("bpm_factor", 1.0)),
                          "쓰는 빠르기": storage.effective_bpm(t), "소리 크기": t["rms"],
                          "상태": ("예시 값" if demo else ("빠르기 못 잼" if t.get("bpm_raw") is None else "측정 완료"))})
         edited = st.data_editor(
             pd.DataFrame(rows), key=f"bpm_editor_{ws['seq']}", hide_index=True, width="stretch",
-            disabled=["곡명", "길이", "잰 빠르기", "쓰는 빠르기", "소리 크기", "상태"],
+            disabled=["곡명", "출처", "들을 수 있음", "측정값 출처", "길이", "잰 빠르기", "쓰는 빠르기", "소리 크기", "상태"],
             column_config={
                 "빠르기 바로잡기": st.column_config.SelectboxColumn(options=list(factor_label.values()), required=True),
                 "잰 빠르기": st.column_config.NumberColumn(format="%.1f", help="1분당 박자 수(BPM)"),
@@ -781,8 +917,12 @@ with main:
                              versions=ws["versions"], data_kind=ws["kind"],
                              excluded=[{k: e.get(k) for k in ("filename", "status", "message")} for e in ws["excluded"]]),
         file_name=f"playline_{stamp}.json", mime="application/json")
-    st.caption("곡 순서 표: 순서·곡명·길이·빠르기·소리 크기. 작업 파일: 곡 목록·측정값·순서·설정·저장한 순서 (이 사이트에서 다시 열 수 있어요). "
+    st.caption("곡 순서 표: 순서·곡명·출처·길이·빠르기·소리 크기. 작업 파일: 곡 목록(제공 음악은 곡 ID, 내 업로드는 파일 지문)·"
+               "측정값과 그 출처·고른 흐름·고정 곡·세부 설정·원래/추천/지금 순서·저장한 순서 (이 사이트에서 다시 열 수 있어요). "
                + storage.AUDIO_NOT_INCLUDED)
+    st.caption("이 창에만 있는 것: 올린 음악 파일, 저장한 순서, 지금 작업. 새로고침하면 사라져요. "
+               "오래 보관하려면 '작업 파일 받기'로 내려받아 두세요.")
 
     render_import_and_help()
+    st.html('<div class="pl-player-space"></div>')
 

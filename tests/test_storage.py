@@ -90,11 +90,11 @@ class CsvTest(unittest.TestCase):
         raw = to_csv(["x2", "x1"], tr, sc)
         self.assertTrue(raw.startswith("﻿".encode("utf-8")))
         rows = list(csv.reader(io.StringIO(raw.decode("utf-8-sig"))))
-        self.assertEqual(rows[0][:5], ["순서", "곡명", "아티스트", "파일명", "길이(초)"])
+        self.assertEqual(rows[0][:6], ["순서", "곡명", "아티스트", "출처", "파일명", "길이(초)"])
         self.assertEqual(rows[1][1], "Night Drive")
-        self.assertEqual(rows[1][6], "")  # BPM 추정 실패는 빈칸
+        self.assertEqual(rows[1][7], "")  # BPM 추정 실패는 빈칸
         self.assertEqual(rows[2][1], "노을 산책")
-        self.assertEqual(rows[2][6], "90.0")
+        self.assertEqual(rows[2][7], "90.0")
 
 
 class MatchTest(unittest.TestCase):
@@ -110,3 +110,37 @@ class MatchTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SchemaV2Test(unittest.TestCase):
+    def test_v1_file_still_loads(self):
+        data = json.loads(export())
+        data["schema_version"] = 1
+        for t in data["tracks"]:
+            t.pop("source", None)
+            t.pop("analysis_scope", None)
+        project, errs = parse_project(json.dumps(data).encode("utf-8"))
+        self.assertFalse(errs, errs)
+        self.assertTrue(all(t["source"] == "upload" for t in project["tracks"].values()))
+        self.assertTrue(all(t["analysis_scope"] == "full" for t in project["tracks"].values()))
+
+    def test_mixed_sources_roundtrip(self):
+        tr = sample_tracks()
+        tr["x1"]["source"] = "library"
+        tr["x2"]["source"] = "upload"
+        raw = to_json(tracks=tr, original=["x1", "x2"], suggested=["x2", "x1"], current=["x2", "x1"],
+                      settings={**SETTINGS, "mode": "wave", "pin_first": "x2"}, versions=[], data_kind="measured")
+        data = json.loads(raw)
+        self.assertEqual(data["schema_version"], 2)
+        project, errs = parse_project(raw)
+        self.assertFalse(errs, errs)
+        self.assertEqual(project["tracks"]["x1"]["source"], "library")
+        self.assertEqual(project["tracks"]["x2"]["source"], "upload")
+        self.assertEqual(project["settings"]["mode"], "wave")
+        self.assertEqual(project["settings"]["pin_first"], "x2")
+
+    def test_unknown_future_version_rejected(self):
+        data = json.loads(export())
+        data["schema_version"] = 99
+        _, errs = parse_project(json.dumps(data).encode("utf-8"))
+        self.assertTrue(errs)

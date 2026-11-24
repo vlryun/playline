@@ -39,5 +39,5 @@ def demo_track(*, tid: str, title: str, artist, category, chart, bpm, rms, cover
         "filename": None, "sha256": None, "size_bytes": None, "duration_sec": None,
         "bpm_raw": bpm, "bpm_factor": 1.0, "rms": float(rms),
         "status": "ok" if bpm is not None else "bpm_failed",
-        "bpm_alternatives": [], "is_demo": True, "cover_url": safe_cover_url(cover_url),
+        "bpm_alternatives": [], "is_demo": True, "source": "demo", "analysis_scope": None, "cover_url": safe_cover_url(cover_url),
     }

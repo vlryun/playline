@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from .arrange import MODES
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: 곡 출처(source)·측정 범위(analysis_scope) 추가. 1 파일도 읽음
 APP_ID = "PLAYLINE"
 MAX_TRACKS = 500
 MAX_JSON_BYTES = 5 * 1024 * 1024
@@ -29,6 +29,35 @@ AUDIO_NOT_INCLUDED = (
     "이 파일에는 음원이 포함되어 있지 않습니다. 새 세션에서 재생하려면 같은 음원 파일을 다시 올려야 하며, "
     "파일 내용(SHA-256 해시)이 같을 때만 연결됩니다."
 )
+
+
+SOURCE_LABEL = {"library": "제공 음악", "upload": "내 업로드", "demo": "데모"}
+
+
+def analysis_source_label(t: dict, demo: bool = False) -> str:
+    """측정값이 어디서 왔는지 사람이 읽을 수 있게."""
+    if demo or t.get("source") == "demo":
+        return "예시 값(가상)"
+    scope = "미리듣기 구간" if t.get("analysis_scope") == "preview" else "곡 전체"
+    if t.get("source") == "library":
+        return f"사전 분석 · librosa · {scope}"
+    return f"올린 파일 분석 · librosa · {scope}"
+
+
+def upgrade_v1(data: dict) -> dict:
+    """schema 1(출처 정보 없음) → 2. 데모 파일은 'demo', 실제 분석 파일은 '내 업로드'로 본다."""
+    data = dict(data)
+    kind = data.get("data_kind")
+    tracks = []
+    for t in data.get("tracks") or []:
+        if isinstance(t, dict):
+            t = dict(t)
+            t.setdefault("source", "demo" if kind == "demo" else "upload")
+            t.setdefault("analysis_scope", None if kind == "demo" else "full")
+        tracks.append(t)
+    data["tracks"] = tracks
+    data["schema_version"] = 2
+    return data
 
 
 def effective_bpm(t: dict) -> float | None:
@@ -49,28 +78,31 @@ def to_csv(order: list[str], tracks: dict[str, dict], scores: dict | None = None
     """순서·곡명·길이·BPM·RMS를 CSV로. 엑셀에서 한글이 깨지지 않도록 UTF-8 BOM을 붙인다."""
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["순서", "곡명", "아티스트", "파일명", "길이(초)", "길이", "BPM(추정)", "BPM 해석 배율",
-                "평균 RMS", "흐름 점수(상대값)", "데이터 종류"])
+    w.writerow(["순서", "곡명", "아티스트", "출처", "파일명", "길이(초)", "길이", "BPM(추정)", "BPM 해석 배율",
+                "평균 RMS", "흐름 점수(상대값)", "측정값 출처", "데이터 종류"])
     kind = "예시 데이터(가상값)" if data_kind == "demo" else "실제 분석값"
     for i, tid in enumerate(order, start=1):
         t = tracks[tid]
         bpm = effective_bpm(t)
         sc = scores.get(tid).score if scores and tid in scores else None
         w.writerow([
-            i, t.get("title", ""), t.get("artist") or "", t.get("filename") or "",
+            i, t.get("title", ""), t.get("artist") or "",
+            SOURCE_LABEL.get(t.get("source") or ("demo" if data_kind == "demo" else "upload"), ""),
+            t.get("filename") or "",
             "" if t.get("duration_sec") is None else f"{t['duration_sec']:.1f}",
             _fmt_duration(t.get("duration_sec")),
             "" if bpm is None else f"{bpm:.1f}",
             t.get("bpm_factor", 1.0),
             "" if t.get("rms") is None else f"{t['rms']:.4f}",
             "" if sc is None else f"{sc:.3f}",
+            analysis_source_label(t, data_kind == "demo"),
             kind,
         ])
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
 _TRACK_KEYS = ("id", "title", "artist", "filename", "sha256", "size_bytes", "duration_sec",
-               "bpm_raw", "bpm_factor", "rms", "status", "category", "bpm_alternatives", "source", "cover_url")
+               "bpm_raw", "bpm_factor", "rms", "status", "category", "bpm_alternatives", "source", "cover_url", "analysis_scope")
 
 
 def to_json(*, tracks: dict[str, dict], original: list[str], suggested: list[str] | None,
@@ -136,6 +168,8 @@ def parse_project(raw: bytes) -> tuple[dict | None, list[str]]:
 
     if not isinstance(data, dict) or data.get("app") != APP_ID:
         return None, ["PLAYLINE에서 저장한 JSON 파일이 아닙니다."]
+    if data.get("schema_version") == 1:
+        data = upgrade_v1(data)
     if data.get("schema_version") != SCHEMA_VERSION:
         return None, [f"지원하지 않는 파일 버전입니다(schema_version={data.get('schema_version')!r})."]
     if data.get("data_kind") not in ("measured", "demo"):
@@ -181,8 +215,10 @@ def parse_project(raw: bytes) -> tuple[dict | None, list[str]]:
         clean[tid]["bpm_factor"] = float(t.get("bpm_factor", 1.0) or 1.0)
         if clean[tid].get("bpm_alternatives") is None:
             clean[tid]["bpm_alternatives"] = []
-        if clean[tid].get("source") != "library":
+        if clean[tid].get("source") not in ("library", "upload", "demo"):
             clean[tid]["source"] = None
+        if clean[tid].get("analysis_scope") not in ("full", "preview"):
+            clean[tid]["analysis_scope"] = "full" if clean[tid].get("source") != "demo" else None
         from .library import safe_cover_url
         clean[tid]["cover_url"] = safe_cover_url(clean[tid].get("cover_url"))
 

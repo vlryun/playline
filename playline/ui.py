@@ -214,6 +214,93 @@ def css() -> str:
   background: linear-gradient(#0E1018, #0E1018) padding-box, linear-gradient(120deg, {HOLO}) border-box;
   box-shadow: 0 0 22px -8px rgba(124,247,255,.55); }}
 
+/* 곡 출처 표시 */
+.pl-src {{ display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.3px; padding:0 7px; border-radius:999px;
+  line-height:17px; vertical-align:1px; }}
+.pl-src.lib {{ background:rgba(124,247,255,.14); color:{CYAN}; }}
+.pl-src.up {{ background:rgba(255,122,217,.14); color:{PINK}; }}
+.pl-src.demo {{ background:rgba(255,196,107,.14); color:{AMBER}; }}
+
+/* 지금 재생 중인 곡: 홀로그램 테두리 + 디스크 회전 + 이퀄라이저 */
+.pl-track.pl-playing {{ position:relative; }}
+.pl-track.pl-playing::before {{ content:''; position:absolute; inset:-6px -8px; border-radius:14px; pointer-events:none;
+  border:1px solid transparent;
+  background: linear-gradient(120deg, {HOLO}) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; opacity:.9; }}
+.pl-track.pl-playing .pl-cover, .pl-track.pl-playing .pl-art-disc {{ animation: pl-spin 3.2s linear infinite; }}
+.pl-track.pl-playing .pl-title::after {{ content:'♪ 재생 중'; margin-left:8px; font-size:11px; font-weight:700; color:{BG};
+  background: linear-gradient(90deg, {CYAN}, {PINK}); padding:1px 7px; border-radius:999px; vertical-align:1px; }}
+
+/* 화면 아래 고정 플레이어 (페이지에 한 번만 만들어져 다시 실행돼도 끊기지 않음) */
+#pl-player {{ position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:999990;
+  width:min(980px, calc(100vw - 24px)); display:grid; align-items:center; gap:6px 14px;
+  grid-template-columns: 52px minmax(0,1.3fr) auto minmax(140px,1fr) auto;
+  grid-template-areas: "art meta ctrl time which" "note note note note note";
+  padding:10px 14px 8px; border-radius:20px; color:{INK}; font-family:'Noto Sans KR',sans-serif;
+  background: linear-gradient(160deg, rgba(22,24,36,.92), rgba(10,11,18,.94));
+  border:1px solid rgba(255,255,255,.14); backdrop-filter: blur(14px);
+  box-shadow: 0 20px 50px -18px rgba(0,0,0,.9), 0 0 0 1px rgba(124,247,255,.08), inset 0 1px 0 rgba(255,255,255,.12); }}
+#pl-player::before {{ content:''; position:absolute; inset:-1px; border-radius:21px; padding:1px; pointer-events:none;
+  background: linear-gradient(90deg, {HOLO}); background-size:300% 100%; opacity:.0; transition: opacity .4s;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask-composite: exclude; animation: pl-sheen 6s linear infinite alternate; }}
+#pl-player.on::before {{ opacity:1; }}
+#pl-player.empty {{ display:none; }}
+#pl-player .plp-art {{ grid-area:art; position:relative; width:48px; height:48px; }}
+#pl-player .plp-img {{ position:absolute; inset:0; border-radius:10px; background-size:cover; background-position:center;
+  background-color:#1a1d2a; background-image: conic-gradient(from 30deg, {HOLO});
+  box-shadow: 0 0 0 2px {POP_CREAM}, 3px 3px 0 2px {POP_RED}; }}
+#pl-player .plp-eq {{ position:absolute; right:-6px; bottom:-6px; display:none; gap:2px; align-items:flex-end; height:16px;
+  padding:3px 4px; border-radius:6px; background:{BG}; }}
+#pl-player.on .plp-eq {{ display:flex; }}
+#pl-player .plp-eq i {{ width:3px; background: linear-gradient(180deg, {CYAN}, {PINK}); border-radius:2px;
+  animation: pl-eq .9s ease-in-out infinite; }}
+#pl-player .plp-eq i:nth-child(2) {{ animation-delay:.2s; }} #pl-player .plp-eq i:nth-child(3) {{ animation-delay:.45s; }}
+#pl-player .plp-eq i:nth-child(4) {{ animation-delay:.1s; }}
+@keyframes pl-eq {{ 0%,100% {{ height:3px; }} 50% {{ height:12px; }} }}
+#pl-player .plp-meta {{ grid-area:meta; min-width:0; }}
+#pl-player .plp-title {{ font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+#pl-player .plp-sub {{ font-size:12px; color:{MUTED}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+#pl-player .plp-ctrl {{ grid-area:ctrl; display:flex; gap:6px; align-items:center; }}
+#pl-player button {{ border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.05); color:{INK};
+  width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:14px; line-height:1; transition: transform .15s, background .2s; }}
+#pl-player button:hover {{ transform: scale(1.08); background:rgba(255,255,255,.12); }}
+#pl-player button:focus-visible, #pl-player select:focus-visible {{ outline:2px solid {CYAN}; outline-offset:2px; }}
+#pl-player .plp-play {{ width:44px; height:44px; border:none; color:{BG}; font-size:16px;
+  background: conic-gradient(from 200deg, {HOLO}); box-shadow: 0 0 18px -4px rgba(124,247,255,.7); }}
+#pl-player .plp-time {{ grid-area:time; display:flex; align-items:center; gap:8px; font-size:11.5px; color:{MUTED};
+  font-variant-numeric:tabular-nums; }}
+#pl-player .plp-prog {{ flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,.1); cursor:pointer; overflow:hidden; }}
+#pl-player .plp-prog i {{ display:block; height:100%; width:0; background: linear-gradient(90deg, {CYAN}, {VIOLET}, {PINK}); }}
+#pl-player .plp-which {{ grid-area:which; background:rgba(255,255,255,.06); color:{INK}; border:1px solid rgba(255,255,255,.16);
+  border-radius:999px; padding:6px 10px; font-size:12px; }}
+#pl-player .plp-which option {{ background:#141722; }}
+#pl-player .plp-note {{ grid-area:note; font-size:11.5px; color:{AMBER}; min-height:0; }}
+#pl-player .plp-note:empty {{ display:none; }}
+@media (max-width: 760px) {{
+  #pl-player {{ grid-template-columns: 44px minmax(0,1fr) auto; grid-template-areas: "art meta ctrl" "time time time" "which which which" "note note note";
+    bottom:8px; padding:8px 10px; }}
+  #pl-player .plp-art {{ width:40px; height:40px; }}
+}}
+@media (prefers-reduced-motion: reduce) {{ #pl-player::before, #pl-player .plp-eq i, .pl-track.pl-playing .pl-cover,
+  .pl-track.pl-playing .pl-art-disc {{ animation:none; }} }}
+.pl-player-space {{ height:120px; }}
+.st-key-player_host {{ height:0; overflow:hidden; margin:0; }}
+
+/* 더 화려하게: 홀로그램 빛이 흐르는 패널 테두리, 섹션 밑줄 반짝임, 떠다니는 반짝이 */
+.st-key-panel::after {{ content:''; position:absolute; inset:-1px; border-radius:19px; padding:1px; pointer-events:none;
+  background: linear-gradient(120deg, transparent 20%, rgba(124,247,255,.7), rgba(255,122,217,.7), transparent 80%);
+  background-size:250% 100%; animation: pl-sheen 7s ease-in-out infinite alternate;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }}
+.pl-section .ln {{ background-size:200% 100%; animation: pl-sheen 5s ease-in-out infinite alternate; }}
+.pl-floaty {{ position:fixed; pointer-events:none; z-index:0; clip-path:{SPARKLE}; animation: pl-float 9s ease-in-out infinite; opacity:.55; }}
+.pl-floaty.f1 {{ width:18px; height:18px; left:4%; top:42%; background:{POP_CREAM}; }}
+.pl-floaty.f2 {{ width:12px; height:12px; right:6%; top:30%; background:{PINK}; animation-delay:2s; }}
+.pl-floaty.f3 {{ width:14px; height:14px; right:12%; top:72%; background:{CYAN}; animation-delay:4s; }}
+.pl-floaty.f4 {{ width:10px; height:10px; left:38%; top:12%; background:{AMBER}; animation-delay:6s; }}
+@keyframes pl-float {{ 0%,100% {{ transform: translateY(0) rotate(0deg) scale(.9); }} 50% {{ transform: translateY(-18px) rotate(30deg) scale(1.15); }} }}
+@media (prefers-reduced-motion: reduce) {{ .st-key-panel::after, .pl-section .ln, .pl-floaty {{ animation:none; }} }}
 .pl-mobile-only {{ display:none; }}
 @media (max-width: 1000px) {{ .pl-nums {{ display:none; }} .pl-mobile-only {{ display:block; }} }}
 @media (max-width: 640px) {{
@@ -233,6 +320,7 @@ def css() -> str:
 }}
 </style>
 <div class="pl-glow" aria-hidden="true"></div>
+<span class="pl-floaty f1"></span><span class="pl-floaty f2"></span><span class="pl-floaty f3"></span><span class="pl-floaty f4"></span>
 """
 
 
@@ -346,15 +434,17 @@ def track_row_html(pos: int, track: dict, bpm, score: float, *, demo: bool, lock
     parts = []
     if track.get("artist"):
         parts.append(esc(track["artist"]))
+    if demo:
+        parts.append('<span class="pl-src demo">데모</span>')
     if demo and track.get("category"):
         parts.append(esc(track["category"]))
     if not demo:
         if track.get("source") != "library":
             parts.append(esc(track.get("filename") or ""))
         if track.get("source") == "library":
-            parts.append("라이브러리" if has_audio else "라이브러리 · 듣기 불가")
-        elif not has_audio:
-            parts.append("음악 파일 없음")
+            parts.append('<span class="pl-src lib">제공 음악</span>' + ("" if has_audio else " 듣기 불가"))
+        else:
+            parts.append('<span class="pl-src up">내 업로드</span>' + ("" if has_audio else " 음악 파일 없음"))
     if orig_pos is not None and orig_pos != pos:
         cls = "pl-moved-up" if orig_pos > pos else "pl-moved-down"
         parts.append(f'<span class="{cls}">원래 {orig_pos}번째</span>')
@@ -364,7 +454,7 @@ def track_row_html(pos: int, track: dict, bpm, score: float, *, demo: bool, lock
     rms_txt = "—" if track.get("rms") is None else f"{track['rms']:.4f}"
     bar = max(0.0, min(1.0, score)) * 100
     return f"""
-<div class="pl-track">
+<div class="pl-track" data-tid="{esc(track.get('id'))}">
   <div class="pl-pos">{pos}</div>
   {cover_html(track, cover)}
   <div class="pl-meta">
