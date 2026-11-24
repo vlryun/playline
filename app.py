@@ -542,7 +542,8 @@ with left:
                     playable = e["sha256"] in audio_store()
                     state = ":green[재생 가능]" if playable else ":orange[듣기 불가 · 측정값만]"
                     mark = " · :violet[담김]" if e["sha256"][:12] in in_list else ""
-                    st.checkbox(f"**{e['title']}**{who}  \n:gray[{dur}] · {state}{mark}",
+                    lic = f" · :gray[{e['license']}]" if e.get("license") else ""
+                    st.checkbox(f"**{e['title']}**{who}  \n:gray[{dur}] · {state}{lic}{mark}",
                                 key=f"lib_pick_{e['sha256'][:12]}")
             if q and not shown:
                 st.caption("검색 결과가 없어요.")
@@ -563,6 +564,14 @@ with left:
             st.html('<p class="pl-help">미리 측정해 둔 빠르기·소리 크기로 바로 순서를 추천해요. '
                     '“듣기 불가” 곡은 저작권 때문에 음원을 두지 않은 곡이에요. 같은 음악 파일을 \'파일 올리기\'에 '
                     '올리면 파일 내용이 같을 때만 연결돼서 들을 수 있어요(제목만 같으면 연결하지 않아요).</p>')
+            credited = [e for e in LIB if e.get("credit")]
+            if credited:
+                with st.expander("음악 출처·라이선스", icon=":material/license:"):
+                    st.caption("재생할 수 있는 제공 음악은 재배포가 허락된 곡만 넣었어요.")
+                    for e in credited:
+                        st.markdown(f"**{e['title']}** — {e['artist']} · [{e['license']}]({e['license_url']}) · "
+                                    f"[원본]({e['source_url']})")
+                    st.code("\n\n".join(e["credit"] for e in credited), language=None)
         with tab_up:
             files = st.file_uploader(
                 "MP3·WAV 파일 (여러 개 가능)", type=["mp3", "wav"], accept_multiple_files=True,
