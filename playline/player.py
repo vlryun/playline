@@ -46,7 +46,7 @@ def queue_items(order: list[str], tracks: dict[str, dict], urls: dict[str, str],
     return out
 
 
-PLAYER_VERSION = "3"  # 플레이어 코드를 바꾸면 올린다: 열려 있던 페이지의 예전 플레이어를 새것으로 교체
+PLAYER_VERSION = "4"  # 플레이어 코드를 바꾸면 올린다: 열려 있던 페이지의 예전 플레이어를 새것으로 교체
 
 PLAYER_JS = r"""
 window.__plUpdate = function (DATA) {
@@ -87,13 +87,18 @@ window.__plUpdate = function (DATA) {
     bar.querySelector('.plp-prog').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); if (A.duration) A.currentTime = A.duration * (e.clientX - r.left) / r.width; };
     bar.querySelector('.plp-which').onchange = (e) => { S.which = e.target.value; render(); };
     A.addEventListener('ended', () => step(1, false));
-    A.addEventListener('play', render); A.addEventListener('pause', render);
+    A.addEventListener('playing', () => { S.playing = true; S.msg = (S.msg && S.msg.indexOf('▶') >= 0) ? '' : S.msg; render(); });
+    ['pause', 'ended', 'emptied', 'error', 'abort'].forEach(ev => A.addEventListener(ev, () => { S.playing = false; render(); }));
+    A.addEventListener('waiting', () => { S.playing = false; render(); });
     A.addEventListener('timeupdate', tick); A.addEventListener('loadedmetadata', tick);
     A.addEventListener('error', () => { S.msg = '이 곡을 불러오지 못해 다음 곡으로 넘어가요.'; step(1, false); });
     setInterval(highlight, 800);
   }
 
-  function blocked() { S.msg = '브라우저가 자동 재생을 막았어요. ▶ 버튼을 눌러 주세요.'; render(); }
+  function blocked(e) {
+    if (e && e.name === 'AbortError') return;   // 다른 곡으로 바꾸며 이전 재생 요청이 취소된 것: 막힘이 아님
+    S.playing = false; S.msg = '하단 플레이어의 ▶ 버튼을 눌러 주세요.'; render();
+  }
   function load(item) {
     S.curId = item.id; S.curItem = item; S.msg = '';
     // 미디어 주소는 앱이 놓인 경로 기준 (Streamlit Cloud 는 /~/+/ 아래에서 앱을 띄움)
@@ -125,14 +130,15 @@ window.__plUpdate = function (DATA) {
   }
   function cur() { if (!S.curId) return null; for (const k in S.queues) { const f = S.queues[k].find(x => x.id === S.curId); if (f) return f; } return S.curItem || null; }
   function highlight() {
-    D.querySelectorAll('.pl-track').forEach(el => el.classList.toggle('pl-playing', !!S.curId && el.dataset.tid === S.curId && !A.paused));
+    D.querySelectorAll('.pl-track').forEach(el => el.classList.toggle('pl-playing', !!S.playing && el.dataset.tid === S.curId));
   }
   function render() {
     const list = q(), c = cur(), playable = list.filter(x => x.playable).length;
-    bar.classList.toggle('on', !!S.curId && !A.paused);
+    bar.classList.toggle('on', !!S.playing);
     bar.classList.toggle('empty', list.length === 0);
-    bar.querySelector('.plp-play').textContent = (!A.paused && S.curId) ? '⏸' : '▶';
-    bar.querySelector('.plp-play').setAttribute('aria-label', (!A.paused && S.curId) ? '일시정지' : '재생');
+    const busy = !!S.curId && !A.paused;   // 재생을 요청했고 멈추지 않음(버퍼링 포함) → 일시정지 버튼
+    bar.querySelector('.plp-play').textContent = busy ? '⏸' : '▶';
+    bar.querySelector('.plp-play').setAttribute('aria-label', busy ? '일시정지' : '재생');
     bar.querySelector('.plp-title').textContent = c ? c.title : (playable ? '▶을 누르면 처음 곡부터 들어요' : '들을 수 있는 곡이 없어요');
     const pos = c ? (idxOf(c.id) + 1) : 0;
     bar.querySelector('.plp-sub').innerHTML = (c && c.artist ? esc(c.artist) + ' · ' : '') +

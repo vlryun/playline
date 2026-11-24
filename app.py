@@ -86,6 +86,17 @@ def cover_for(track: dict) -> str | None:
     return S.covers.get(sha) or library_covers().get(sha)
 
 
+# 비교 지표 열 도움말 (playline/arrange.py 의 evaluate 계산식과 같은 뜻)
+METRIC_COLUMNS = {
+    "원하는 흐름과의 차이": st.column_config.NumberColumn(
+        format="%.3f", help="자리마다 흐름 점수와 원하는 흐름 선의 차이를 평균한 값. 작을수록 고른 흐름의 모양에 가까워요."),
+    "곡 넘어갈 때 평균 변화": st.column_config.NumberColumn(
+        format="%.3f", help="이웃한 두 곡의 흐름 점수 차이를 평균한 값. 작을수록 이웃한 곡끼리 점수가 비슷해요."),
+    "가장 크게 튀는 곳": st.column_config.NumberColumn(
+        format="%.3f", help="이웃한 두 곡 사이 흐름 점수 차이 중 가장 큰 값."),
+}
+
+
 # ───────────────────────── 상태 도우미 ─────────────────────────
 
 def flash(kind: str, msg: str):
@@ -688,8 +699,10 @@ def render_import_and_help():
 - **소리 크기 (RMS)** — 곡 전체의 평균 소리 세기예요. 클수록 크고 꽉 찬 느낌으로 들려요. 슬픔·기쁨 같은 감정을 뜻하지는 않아요.
 - **흐름 점수** — 빠르기와 소리 크기를 합쳐서 0(가장 잔잔)~1(가장 강함)로 나타낸 점수예요. 지금 고른 곡들끼리 비교한 값이라, 다른 플레이리스트의 점수와는 비교할 수 없어요.
 - **원하는 흐름** — 고른 흐름(점점 신나게 / 점점 차분하게 / 올렸다가 내리기)을 선으로 그린 거예요. 그래프의 흰 점선이에요.
-- **원하는 흐름과의 차이** — 각 자리의 흐름 점수가 원하는 흐름 선에서 평균적으로 얼마나 떨어져 있는지예요. 작을수록 잘 맞아요.
-- **곡 넘어갈 때 변화** — 앞뒤 곡의 흐름 점수 차이예요. 작을수록 자연스럽게 이어져요.
+- **원하는 흐름과의 차이** — 자리마다 '흐름 점수'와 '원하는 흐름 선'의 차이를 구해 평균한 값이에요. 작을수록 고른 흐름의 모양에 가까워요.
+- **곡 넘어갈 때 평균 변화** — 이웃한 두 곡의 흐름 점수 차이를 평균한 값이에요. 작을수록 이웃한 곡끼리 점수가 비슷해요.
+- **가장 크게 튀는 곳** — 이웃한 두 곡 사이 흐름 점수 차이 중 가장 큰 값이에요.
+- 원하는 흐름에 맞추는 것과 곡 사이 변화를 줄이는 것은 서로 다른 기준이라, 하나가 줄 때 다른 하나는 커질 수 있어요. 어느 쪽도 실제 듣는 느낌이나 감정을 정확히 재는 값은 아니에요.
 - **추천은 어떻게 만들까?** — 흐름 점수가 낮은 곡부터 원하는 흐름의 낮은 자리에 차례로 맞춰 넣고, '곡 사이 부드럽게 잇기' 값만큼 앞뒤 곡 차이도 줄이도록 자리를 바꿔 봐요. 무작위가 아니라서 같은 곡·같은 설정이면 결과도 항상 같아요.
 """)
 
@@ -754,6 +767,16 @@ with main:
 
     # ── 곡 목록 ──
     st.html(ui.section_html("플레이리스트"))
+    if sug:
+        if ws["suggested_key"] != suggestion_key(ws):
+            # 설정만 바뀌고 아직 다시 추천하지 않음: 예전 추천 결과와 새 설정을 섞어 말하지 않는다
+            st.html(ui.summary_html(["설정이 바뀌었어요. 다시 추천해 주세요. ('추천 순서 만들기')"], ["다시 추천 필요"],
+                                    stale=True))
+        else:
+            lines = ar.result_summary(ar.MODES[S.mode]["label"], ar.evaluate(org, scores, S.mode),
+                                      ar.evaluate(sug, scores, S.mode),
+                                      ar.evaluate(cur, scores, S.mode) if cur != sug else None)
+            st.html(ui.summary_html(lines, ["추천 결과", "지금 순서"][:len(lines)]))
     b1, b2, b3 = st.columns([1, 1, 2.2])
     b1.button("추천 순서로 되돌리기", icon=":material/auto_awesome:", width="stretch", on_click=restore,
               args=("suggested",), disabled=not sug or cur == sug)
@@ -779,7 +802,7 @@ with main:
             st.button("재생" if playable else "",
                       key=f"play_{tid}", icon=":material/play_arrow:" if playable else ":material/music_off:",
                       disabled=not playable, on_click=play_track, args=(tid,),
-                      help="위쪽 플레이어에 이 곡을 올려요(바로 재생되지는 않아요)" if playable else
+                      help="이 곡을 하단 플레이어에서 재생해요" if playable else
                       ("체험 모드는 음악 파일이 없어 들을 수 없어요" if demo else
                        "저작권 때문에 이 사이트에서는 들을 수 없어요(측정값만 있어요)" if t.get("source") == "library"
                        else "같은 음악 파일을 다시 올리면 들을 수 있어요"),
@@ -892,9 +915,10 @@ with main:
 
     mrows = [mrow("원래 순서", org)] + ([mrow("추천 순서", sug)] if sug else []) + \
         ([mrow("내가 바꾼 순서", cur)] if cur != sug else [])
-    st.dataframe(pd.DataFrame(mrows), hide_index=True, width="stretch")
-    st.caption("숫자가 작을수록 원하는 흐름에 가깝고, 곡이 넘어갈 때 덜 튀어요. "
-               "숫자는 참고용이라, 최종 판단은 직접 들어 보고 해 주세요.")
+    st.dataframe(pd.DataFrame(mrows), hide_index=True, width="stretch", column_config=METRIC_COLUMNS)
+    st.caption("원하는 흐름에 맞추는 것과 곡 사이 변화를 줄이는 것은 서로 다른 기준이에요. '파도처럼'처럼 "
+               "오르내리는 흐름에서는 원하는 흐름에 가까워질수록 곡 사이 변화가 커질 수 있어요. 이 수치는 빠르기와 "
+               "소리 크기로 계산한 참고값이라, 실제로 어떻게 들리는지는 직접 들어 보고 판단해 주세요.")
 
     # ── 버전 저장·비교 ──
     st.html(ui.section_html("마음에 드는 순서 저장하기"))
@@ -913,7 +937,9 @@ with main:
                           "곡 넘어갈 때 변화": None if m is None else round(m.mean_jump, 3),
                           "상태": ("지금 순서와 같음" if ok and v["order"] == cur else
                                  ("불러올 수 있음" if ok else "곡 목록이 달라 불러올 수 없음"))})
-        st.dataframe(pd.DataFrame(vrows), hide_index=True, width="stretch")
+        st.dataframe(pd.DataFrame(vrows), hide_index=True, width="stretch", column_config={
+            "원하는 흐름과의 차이": METRIC_COLUMNS["원하는 흐름과의 차이"],
+            "곡 넘어갈 때 변화": METRIC_COLUMNS["곡 넘어갈 때 평균 변화"]})
         vs1, vs2, vs3 = st.columns([2, 1, 1], vertical_alignment="bottom")
         pick = vs1.selectbox("저장한 순서", range(len(ws["versions"])), format_func=lambda i: ws["versions"][i]["name"],
                              key="version_pick")

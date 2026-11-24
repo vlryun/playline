@@ -289,3 +289,53 @@ def apply_pins(order: list[str], pin_first: str | None, pin_last: str | None) ->
     rest = [t for t in order if t not in (pin_first, pin_last)]
     out = ([pin_first] if pin_first else []) + rest + ([pin_last] if pin_last and pin_last != pin_first else [])
     return out
+
+
+# ───────── 추천 결과 한 줄 요약 (화면 문구용) ─────────
+
+def fmt_metric(x: float) -> str:
+    return f"{x:.3f}"
+
+
+def ro(num_text: str) -> str:
+    """숫자 뒤 조사 '(으)로'. 마지막 숫자를 읽었을 때 받침이 있으면(ㄹ 제외) '으로'."""
+    last = num_text.strip()[-1:] if num_text else ""
+    return "으로" if last in "036" else "로"
+
+
+def change_word(before: float, after: float) -> str:
+    """표시하는 소수 셋째 자리 기준으로 비교한다(화면에 같은 숫자가 보이면 '같아요')."""
+    a, b = fmt_metric(before), fmt_metric(after)
+    if a == b:
+        return "같아요"
+    return "줄었어요" if after < before else "늘었어요"
+
+
+def compare_word(value: float, ref: float) -> str:
+    a, b = fmt_metric(value), fmt_metric(ref)
+    if a == b:
+        return "같아요"
+    return "작아요" if value < ref else "커요"
+
+
+def result_summary(mode_label: str, original: OrderMetrics, suggested: OrderMetrics,
+                   current: OrderMetrics | None = None) -> list[str]:
+    """추천 결과 요약 문장들. current 는 직접 바꾼 순서일 때만 넘긴다.
+
+    '원하는 흐름과의 차이'(목표 곡선과의 평균 절대 오차)만 말하고, 듣기 좋아졌다고 단정하지 않는다.
+    """
+    a, b = fmt_metric(original.mae), fmt_metric(suggested.mae)
+    w = change_word(original.mae, suggested.mae)
+    if w == "같아요":
+        first = f"‘{mode_label}’ 흐름으로 정렬했어요. 원하는 흐름과의 차이는 {b}{ro(b)} 원래 순서와 같아요."
+    else:
+        first = f"‘{mode_label}’ 흐름으로 정렬했어요. 원하는 흐름과의 차이가 {a} → {b}{ro(b)} {w}."
+    lines = [first]
+    if current is not None:
+        c = fmt_metric(current.mae)
+        cw = compare_word(current.mae, suggested.mae)
+        tail = "같아요" if cw == "같아요" else f"{cw}"
+        lines.append(f"지금 순서(직접 바꿈)의 원하는 흐름과의 차이는 {c}{ro(c)}, 추천 순서({b})보다 {tail}."
+                     if cw != "같아요" else
+                     f"지금 순서(직접 바꿈)의 원하는 흐름과의 차이는 {c}{ro(c)} 추천 순서와 같아요.")
+    return lines

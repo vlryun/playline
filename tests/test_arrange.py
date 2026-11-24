@@ -193,3 +193,35 @@ class ModeShapeTest(unittest.TestCase):
         self.assertLess(f[7], 0.4)
         self.assertEqual(f[-1], 1.0)
         self.assertEqual(int(np.argmax(target_shape("early", 21))), 4)
+
+
+class SummaryTest(unittest.TestCase):
+    def test_words_follow_real_numbers(self):
+        from playline.arrange import OrderMetrics, result_summary, ro
+        down = result_summary("파도처럼", OrderMetrics(0.414, 0, 0), OrderMetrics(0.133, 0, 0))
+        self.assertEqual(down, ["‘파도처럼’ 흐름으로 정렬했어요. 원하는 흐름과의 차이가 0.414 → 0.133으로 줄었어요."])
+        up = result_summary("A", OrderMetrics(0.1, 0, 0), OrderMetrics(0.12, 0, 0))
+        self.assertIn("늘었어요", up[0])
+        same = result_summary("A", OrderMetrics(0.2001, 0, 0), OrderMetrics(0.2004, 0, 0))
+        self.assertIn("원래 순서와 같아요", same[0])
+        manual = result_summary("A", OrderMetrics(0.3, 0, 0), OrderMetrics(0.1, 0, 0), OrderMetrics(0.25, 0, 0))
+        self.assertEqual(len(manual), 2)
+        self.assertIn("지금 순서(직접 바꿈)", manual[1])
+        self.assertIn("커요", manual[1])
+        self.assertEqual([ro(x) for x in ("0.130", "0.131", "0.133", "0.136", "0.137", "0.138", "0.132")],
+                         ["으로", "로", "으로", "으로", "로", "로", "로"])
+
+    def test_summary_matches_evaluate_for_rise_and_wave(self):
+        from playline.arrange import result_summary, fmt_metric
+        for mode in ("rise", "wave"):
+            r = arrange(self.order, self.scores, mode)
+            o, s = evaluate(self.order, self.scores, mode), evaluate(r.order, self.scores, mode)
+            line = result_summary(MODES[mode]["label"], o, s)[0]
+            self.assertIn(fmt_metric(s.mae), line)
+            self.assertIn(MODES[mode]["label"], line)
+
+    def setUp(self):
+        self.tracks = [{"id": f"t{i}", "bpm": b, "rms": r} for i, (b, r) in
+                       enumerate([(70, .05), (128, .2), (95, .1), (150, .25), (110, .12), (82, .07), (135, .18)])]
+        self.scores = compute_scores(self.tracks, 0.5)
+        self.order = [t["id"] for t in self.tracks]

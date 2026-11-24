@@ -104,6 +104,41 @@ class AppFlowTest(unittest.TestCase):
             self.assertEqual(cur[-1], last, mode)
             self.assertEqual(sorted(cur), sorted(ws["original"]))
 
+    def test_result_summary_states(self):
+        import html as _h
+
+        def summary(at):
+            boxes = [x.proto.body for x in at.get("html") if 'class="pl-summary' in x.proto.body]
+            return _h.unescape(boxes[0]) if boxes else ""
+
+        at = fresh()
+        at.button(key="hero_demo").click().run()
+        for mode, label in (("rise", "점점 신나게"), ("wave", "파도처럼")):
+            at.button(key=f"mode_btn_{mode}").click().run()
+            # 설정만 바꾸고 아직 다시 추천하지 않음 → 예전 숫자 대신 안내
+            if mode != "rise":
+                self.assertIn("설정이 바뀌었어요. 다시 추천해 주세요", summary(at))
+                self.assertNotIn("정렬했어요", summary(at))
+            at.button(key="arrange_btn").click().run()
+            text = summary(at)
+            self.assertIn(f"‘{label}’ 흐름으로 정렬했어요", text)
+            ws = at.session_state.ws
+            from playline import arrange as ar, storage
+            sc = ar.compute_scores([{"id": t, "bpm": storage.effective_bpm(ws["tracks"][t]), "rms": ws["tracks"][t]["rms"]}
+                                    for t in ws["original"]], 0.5)
+            o = ar.evaluate(ws["original"], sc, mode).mae
+            sg = ar.evaluate(ws["suggested"], sc, mode).mae
+            self.assertIn(f"{o:.3f}", text)
+            self.assertIn(f"{sg:.3f}", text)
+            self.assertIn(ar.change_word(o, sg), text)
+            self.assertNotIn("지금 순서(직접 바꿈)", text)
+        # 직접 순서를 바꾸면 추천 결과와 지금 순서 결과를 따로 보여 준다
+        ws = at.session_state.ws
+        at.button(key=f"down_{ws['current'][0]}").click().run()
+        text = summary(at)
+        self.assertIn("‘파도처럼’ 흐름으로 정렬했어요", text)
+        self.assertIn("지금 순서(직접 바꿈)", text)
+
     def test_demo_flow(self):
         at = fresh()
         at.button(key="hero_demo").click().run()

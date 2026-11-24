@@ -304,6 +304,19 @@ def css() -> str:
 .pl-floaty.f4 {{ width:10px; height:10px; left:38%; top:12%; background:{AMBER}; animation-delay:6s; }}
 @keyframes pl-float {{ 0%,100% {{ transform: translateY(0) rotate(0deg) scale(.9); }} 50% {{ transform: translateY(-18px) rotate(30deg) scale(1.15); }} }}
 @media (prefers-reduced-motion: reduce) {{ .st-key-panel::after, .pl-section .ln, .pl-floaty {{ animation:none; }} }}
+/* 추천 결과 요약 */
+.pl-summary {{ position:relative; margin:2px 0 6px; padding:9px 14px 9px 16px; border-radius:12px;
+  background: linear-gradient(100deg, rgba(124,247,255,.08), rgba(169,139,255,.05) 55%, rgba(255,122,217,.06));
+  border:1px solid rgba(255,255,255,.12); font-size:13.5px; color:{INK}; line-height:1.55; }}
+.pl-summary::before {{ content:''; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:3px;
+  background: linear-gradient(180deg, {CYAN}, {VIOLET}, {PINK}); }}
+.pl-summary.stale {{ background: rgba(255,196,107,.07); border-color: rgba(255,196,107,.35); color:#F3DDB6; }}
+.pl-summary.stale::before {{ background:{AMBER}; }}
+.pl-sum-row {{ display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }}
+.pl-sum-row + .pl-sum-row {{ margin-top:3px; }}
+.pl-sum-tag {{ flex:none; font-size:10.5px; font-weight:700; letter-spacing:.3px; padding:0 7px; border-radius:999px;
+  line-height:18px; background:rgba(255,255,255,.08); color:{MUTED}; }}
+.pl-summary.stale .pl-sum-tag {{ background:rgba(255,196,107,.15); color:{AMBER}; }}
 .pl-mobile-only {{ display:none; }}
 @media (max-width: 1000px) {{ .pl-nums {{ display:none; }} .pl-mobile-only {{ display:block; }} }}
 @media (max-width: 640px) {{
@@ -379,6 +392,13 @@ def hero_html() -> str:
 
 def step_html(n: int, title: str) -> str:
     return f'<div class="pl-step"><span class="n">{n}</span>{esc(title)}</div>'
+
+
+def summary_html(lines: list[str], tags: list[str], stale: bool = False) -> str:
+    """플레이리스트 위 한 줄 요약. tags 는 각 줄 앞의 작은 꼬리표(예: '추천 결과', '지금 순서')."""
+    rows = "".join(f'<div class="pl-sum-row"><span class="pl-sum-tag">{esc(t)}</span><span>{esc(l)}</span></div>'
+                   for t, l in zip(tags, lines))
+    return f'<div class="pl-summary{" stale" if stale else ""}" role="status">{rows}</div>'
 
 
 def section_html(title: str) -> str:
