@@ -46,6 +46,8 @@ def queue_items(order: list[str], tracks: dict[str, dict], urls: dict[str, str],
     return out
 
 
+PLAYER_VERSION = "3"  # 플레이어 코드를 바꾸면 올린다: 열려 있던 페이지의 예전 플레이어를 새것으로 교체
+
 PLAYER_JS = r"""
 window.__plUpdate = function (DATA) {
   const P = window, D = document;
@@ -169,9 +171,16 @@ def component_html(payload: dict) -> str:
     return """<!doctype html><html><body><script>
 (function () {
   const P = window.parent, D = P.document;
+  const VER = %s;
+  if (P.__plUpdate && P.__plVer !== VER) {   // 예전 버전 플레이어 정리
+    try { P.__pl && P.__pl.audio.pause(); } catch (e) {}
+    ['pl-player', 'pl-audio', 'pl-player-js'].forEach(id => { const el = D.getElementById(id); if (el) el.remove(); });
+    delete P.__pl; delete P.__plUpdate;
+  }
   if (!P.__plUpdate) {
     const s = D.createElement('script'); s.id = 'pl-player-js'; s.textContent = %s; D.head.appendChild(s);
+    P.__plVer = VER;
   }
   if (P.__plUpdate) P.__plUpdate(JSON.parse(%s));
 })();
-</script></body></html>""" % (code, data)
+</script></body></html>""" % (json.dumps(PLAYER_VERSION), code, data)

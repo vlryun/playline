@@ -3,6 +3,7 @@
 """PLAYLINE — Your tracks. Your flow.
 
 실행:  streamlit run app.py
+플레이어: playline/player.py (PLAYER_VERSION 으로 브라우저 쪽 코드 교체)
 """
 
 from __future__ import annotations
