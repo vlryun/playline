@@ -94,7 +94,10 @@ window.__plUpdate = function (DATA) {
   function blocked() { S.msg = '브라우저가 자동 재생을 막았어요. ▶ 버튼을 눌러 주세요.'; render(); }
   function load(item) {
     S.curId = item.id; S.curItem = item; S.msg = '';
-    if (A.dataset.src !== item.url) { A.src = item.url; A.dataset.src = item.url; }
+    // 미디어 주소는 앱이 놓인 경로 기준 (Streamlit Cloud 는 /~/+/ 아래에서 앱을 띄움)
+    const base = location.pathname.replace(/[^/]*$/, '');
+    const src = item.url.charAt(0) === '/' ? base + item.url.slice(1) : item.url;
+    if (A.dataset.src !== src) { A.src = src; A.dataset.src = src; }
     A.play().catch(blocked); render();
   }
   function startFrom(i) {

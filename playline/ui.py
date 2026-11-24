@@ -279,8 +279,11 @@ def css() -> str:
 #pl-player .plp-note {{ grid-area:note; font-size:11.5px; color:{AMBER}; min-height:0; }}
 #pl-player .plp-note:empty {{ display:none; }}
 @media (max-width: 760px) {{
-  #pl-player {{ grid-template-columns: 44px minmax(0,1fr) auto; grid-template-areas: "art meta ctrl" "time time time" "which which which" "note note note";
-    bottom:8px; padding:8px 10px; }}
+  #pl-player {{ grid-template-columns: 44px minmax(0,1fr) auto; grid-template-areas: "art meta ctrl" "time time which" "note note note";
+    bottom:8px; padding:8px 10px; gap:4px 10px; }}
+  #pl-player button {{ width:32px; height:32px; }} #pl-player .plp-play {{ width:40px; height:40px; }}
+  #pl-player .plp-which {{ padding:3px 8px; font-size:11px; max-width:130px; }}
+  #pl-player .plp-note {{ font-size:11px; }}
   #pl-player .plp-art {{ width:40px; height:40px; }}
 }}
 @media (prefers-reduced-motion: reduce) {{ #pl-player::before, #pl-player .plp-eq i, .pl-track.pl-playing .pl-cover,
