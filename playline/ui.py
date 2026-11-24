@@ -215,6 +215,7 @@ def css() -> str:
   box-shadow: 0 0 22px -8px rgba(124,247,255,.55); }}
 
 .pl-mobile-only {{ display:none; }}
+@media (max-width: 1000px) {{ .pl-nums {{ display:none; }} .pl-mobile-only {{ display:block; }} }}
 @media (max-width: 640px) {{
   .pl-mobile-only {{ display:block; }}
   .pl-hero {{ gap:14px; }}
