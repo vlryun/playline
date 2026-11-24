@@ -26,16 +26,40 @@ import numpy as np
 
 MODES = {
     "rise": {
-        "label": "점차 고조",
-        "desc": "차분한 곡에서 시작해 점점 빠르고 큰 소리의 곡으로 이어집니다.",
+        "label": "점점 신나게",
+        "desc": "잔잔하게 시작해서 점점 빠르고 강한 곡으로 올라가요.",
     },
     "fall": {
-        "label": "점차 차분",
-        "desc": "빠르고 큰 소리의 곡에서 시작해 점점 차분한 곡으로 마무리합니다.",
+        "label": "점점 차분하게",
+        "desc": "신나게 시작해서 점점 잔잔한 곡으로 마무리해요.",
     },
     "arc": {
-        "label": "고조 후 차분",
-        "desc": "차분하게 시작해 중반에 가장 고조되고, 끝에서 다시 차분해집니다.",
+        "label": "올렸다가 내리기",
+        "desc": "잔잔하게 시작해 중간쯤 가장 신나고, 끝은 다시 잔잔하게.",
+    },
+    "valley": {
+        "label": "쉬었다가 다시 신나게",
+        "desc": "신나게 시작해 중간에 한숨 돌리고, 끝에서 다시 올라가요.",
+    },
+    "wave": {
+        "label": "파도처럼",
+        "desc": "올라갔다 내려가기를 두 번 반복해서 지루할 틈이 없어요.",
+    },
+    "early": {
+        "label": "처음부터 확",
+        "desc": "초반에 바로 가장 신나는 곡을 두고, 천천히 가라앉혀요.",
+    },
+    "finale": {
+        "label": "마지막에 터뜨리기",
+        "desc": "한참 잔잔하게 가다가 마지막 몇 곡에서 확 끌어올려요.",
+    },
+    "plateau": {
+        "label": "빨리 올리고 쭉 유지",
+        "desc": "앞부분에서 빠르게 올린 뒤 끝까지 신나는 분위기를 이어가요.",
+    },
+    "workout": {
+        "label": "운동 코스",
+        "desc": "워밍업 → 쭉 신나게 → 마지막 쿨다운까지, 운동할 때 딱 맞게.",
     },
 }
 
@@ -102,8 +126,24 @@ def target_shape(mode: str, n: int) -> np.ndarray:
         return x
     if mode == "fall":
         return 1.0 - x
-    p = ARC_PEAK
-    return np.where(x <= p, x / p, (1.0 - x) / (1.0 - p))
+    if mode == "arc":
+        p = ARC_PEAK
+        return np.where(x <= p, x / p, (1.0 - x) / (1.0 - p))
+    if mode == "valley":
+        return np.abs(2.0 * x - 1.0)
+    if mode == "wave":
+        return 0.5 - 0.5 * np.cos(4.0 * np.pi * x)
+    if mode == "early":
+        p = 0.2
+        return np.where(x <= p, 0.6 + 0.4 * x / p, 1.0 - (x - p) / (1.0 - p))
+    if mode == "finale":
+        return x ** 3
+    if mode == "plateau":
+        p = 0.35
+        return np.where(x <= p, x / p, 1.0)
+    # workout: 워밍업(0~25%) → 유지(25~80%) → 쿨다운(80~100%)
+    up, down = 0.25, 0.8
+    return np.where(x <= up, 0.3 + 0.7 * x / up, np.where(x <= down, 1.0, 1.0 - 0.7 * (x - down) / (1.0 - down)))
 
 
 def target_curve(mode: str, n: int, lo: float, hi: float) -> np.ndarray:
@@ -201,10 +241,10 @@ def arrange(order: list[str], scores: dict[str, ScoreInfo], mode: str,
                     else:
                         seq[a], seq[b] = seq[b], seq[a]
     elif smooth > 0 and n > SMOOTH_MAX_TRACKS:
-        notes.append(f"곡이 {SMOOTH_MAX_TRACKS}곡을 넘어 인접 변화 보조 기준은 적용하지 않았습니다.")
+        notes.append(f"곡이 {SMOOTH_MAX_TRACKS}곡을 넘어서 '곡 사이 부드럽게 잇기'는 적용하지 않았어요.")
 
     if hi - lo < EPS:
-        notes.append("모든 곡의 흐름 점수가 같아 원본 순서를 유지했습니다.")
+        notes.append("모든 곡의 흐름 점수가 같아서 원래 순서를 그대로 뒀어요.")
 
     assert sorted(result) == sorted(order), "모든 곡이 정확히 한 번씩 포함되어야 합니다"
     return ArrangeResult(order=result, notes=notes)

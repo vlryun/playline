@@ -133,7 +133,7 @@ def start_demo():
     S.preview_id = None
     S.focus_upload = False
     run_arrange(silent=True)
-    flash("info", "데모를 불러왔습니다. 곡명은 공개 차트에서 확인했지만 BPM·RMS는 가상값입니다.")
+    flash("info", "체험 모드를 시작했어요. 곡 제목은 실제 차트에서 가져왔지만 빠르기·소리 크기는 예시 값이에요.")
 
 
 def start_library():
@@ -149,7 +149,7 @@ def start_library():
     S.preview_id = None
     S.focus_upload = False
     run_arrange(silent=True)
-    flash("success", f"라이브러리에서 {len(tracks)}곡을 넣었습니다. 미리 분석해 둔 실제 분석값으로 순서를 제안했습니다.")
+    flash("success", f"{len(tracks)}곡을 담았어요. 추천 순서를 만들어 뒀으니 아래에서 확인해 보세요.")
 
 
 def set_library_picks(value: bool, shas: list[str]):
@@ -164,7 +164,7 @@ def focus_upload():
 def run_analysis(files):
     audio = uploaded_audio(files)
     if not files:
-        flash("warning", "먼저 MP3 또는 WAV 파일을 올려 주세요.")
+        flash("warning", "먼저 MP3나 WAV 파일을 올려 주세요.")
         return
     prev = S.ws
     tracks, excluded, seen = [], [], {}
@@ -205,7 +205,7 @@ def run_analysis(files):
     progress.empty()
 
     if not tracks:
-        flash("error", "분석할 수 있는 곡이 없습니다. 아래 '제외된 파일' 안내를 확인해 주세요.")
+        flash("error", "분석할 수 있는 곡이 없어요. 아래 '넣지 못한 파일'에서 이유를 확인해 주세요.")
         S.ws = new_ws("measured", [], excluded=excluded)
         return
 
@@ -217,15 +217,15 @@ def run_analysis(files):
         ws["current"] = [t for t in prev["current"]]
         ws["suggested"], ws["suggested_key"] = prev["suggested"], prev["suggested_key"]
         S.ws = ws
-        flash("success", f"{len(tracks)}곡 분석 결과를 갱신했습니다. 곡 구성이 같아 편집 순서와 저장 버전을 유지합니다.")
+        flash("success", f"{len(tracks)}곡을 다시 불러왔어요. 곡 목록이 같아서 지금 순서와 저장한 순서는 그대로 뒀어요.")
     else:
         if prev and prev["kind"] == "demo":
-            flash("info", "데모 예시 데이터를 비우고 업로드한 음원의 실제 분석값으로 전환했습니다.")
+            flash("info", "체험용 예시 곡을 비우고 올린 곡으로 바꿨어요.")
         keep = [v for v in (prev or {}).get("versions", [])] if prev and prev["kind"] == "measured" else []
         S.ws = new_ws("measured", tracks, excluded=excluded, versions=keep)
         reset_pins_if_missing()
         run_arrange(silent=True)
-        flash("success", f"{len(tracks)}곡을 분석했습니다. 업로드 순서를 원본 순서로 저장했고, 기본 설정으로 순서를 제안했습니다.")
+        flash("success", f"{len(tracks)}곡을 분석했어요. 올린 순서를 '원래 순서'로 두고, 추천 순서도 만들어 뒀어요.")
     S.focus_upload = False
 
 
@@ -244,7 +244,7 @@ def run_arrange(silent=False):
     for n in res.notes or []:
         flash("info", n)
     if not silent:
-        flash("success", f"'{ar.MODES[S.mode]['label']}' 흐름으로 순서를 제안했습니다. 아래 목록에서 직접 고칠 수 있어요.")
+        flash("success", f"'{ar.MODES[S.mode]['label']}' 흐름으로 순서를 추천했어요. 화살표로 직접 바꿀 수도 있어요.")
 
 
 def choose_mode(mode):
@@ -359,14 +359,14 @@ with hero_l:
     st.html(ui.hero_html())
 with hero_r:
     with st.container(horizontal=True, horizontal_alignment="right", gap="small"):
-        st.button("내 음악 분석", type="primary", icon=":material/upload:", on_click=focus_upload, key="hero_upload")
+        st.button("내 음악 올리기", type="primary", icon=":material/upload:", on_click=focus_upload, key="hero_upload")
         st.button("데모 체험", icon=":material/play_circle:", on_click=start_demo, key="hero_demo")
 
 for kind, msg in S.flash:
     getattr(st, kind)(msg)
 S.flash = []
 
-left, main = st.columns([1, 2.5], gap="large")
+left, main = st.columns([1.15, 2.5], gap="large")
 
 # ─────────── 왼쪽: 설정 영역 ───────────
 with left:
@@ -377,15 +377,15 @@ with left:
         with tab_lib:
             if not LIB:
                 st.caption("라이브러리가 비어 있습니다. tools/build_library.py 로 곡을 추가하세요.")
-            q = st.text_input("곡 검색", key="lib_query", placeholder="곡명·아티스트", label_visibility="collapsed")
+            q = st.text_input("곡 검색", key="lib_query", placeholder="곡 제목·가수 검색", label_visibility="collapsed")
             shown = library.search(LIB, q)
             with st.container(key="lib_list", height=260 if len(shown) > 6 else "content"):
                 for e in shown:
                     bpm = "—" if e.get("bpm") is None else f"{e['bpm']:.1f}"
                     who = f" · {e['artist']}" if e.get("artist") else ""
-                    play = "" if e["sha256"] in LIB_AUDIO else " · 분석값만"
+                    play = "" if e["sha256"] in LIB_AUDIO else " · 듣기 불가"
                     dur = ui.fmt_duration(e.get("duration_sec"))
-                    st.checkbox(f"**{e['title']}**{who}  \n:gray[BPM {bpm} · {dur}{play}]",
+                    st.checkbox(f"**{e['title']}**{who}  \n:gray[빠르기 {bpm} · {dur}{play}]",
                                 key=f"lib_pick_{e['sha256'][:12]}")
             if q and not shown:
                 st.caption("검색 결과가 없습니다.")
@@ -397,15 +397,15 @@ with left:
                       disabled=not n_pick, key="lib_none")
             st.button(f"{n_pick}곡으로 시작", type="primary", width="stretch", icon=":material/queue_music:",
                       on_click=start_library, disabled=not n_pick, key="lib_start")
-            st.html('<p class="pl-help">라이브러리 곡은 미리 librosa로 분석한 실제 값입니다. '
-                    '저작권 음원은 공개 사이트에 올리지 않아 “분석값만” 곡은 재생되지 않습니다.</p>')
+            st.html('<p class="pl-help">곡을 고르면 미리 측정해 둔 빠르기·소리 크기로 바로 순서를 추천해요. '
+                    '저작권 때문에 “듣기 불가” 곡은 이 사이트에서 재생되지 않아요.</p>')
         with tab_up:
             files = st.file_uploader(
                 "MP3·WAV 파일 (여러 개 가능)", type=["mp3", "wav"], accept_multiple_files=True,
                 key=f"uploader_{S.uploader_key}",
-                help=f"파일당 최대 {analysis.MAX_FILE_MB}MB. 음원은 이 앱이 실행 중인 서버(내 PC 또는 배포 서버)에서만 분석하고 외부 AI 서비스로 보내지 않으며, 분석 뒤 임시 파일을 지웁니다.")
-            st.html(f'<p class="pl-help">파일당 최대 {analysis.MAX_FILE_MB}MB · 올린 순서가 원본 순서가 됩니다 · '
-                    f'곡당 분석에 수 초~수십 초 걸립니다.</p>')
+                help=f"파일당 최대 {analysis.MAX_FILE_MB}MB. 올린 곡은 이 앱 안에서만 분석하고 외부 AI 서비스로 보내지 않아요. 분석이 끝나면 임시 파일은 바로 지워요.")
+            st.html(f'<p class="pl-help">파일당 최대 {analysis.MAX_FILE_MB}MB · 올린 순서가 “원래 순서”가 돼요 · '
+                    f'곡마다 분석에 몇 초~수십 초 걸려요.</p>')
             audio_store = {**LIB_AUDIO, **uploaded_audio(files)}
             c1, c2 = st.columns(2)
             analyze_clicked = c1.button("분석 시작", type="primary", width="stretch", disabled=not files,
@@ -427,96 +427,97 @@ with left:
                     msg += f" 새 파일 {len(new_files)}개."
                 if removed:
                     msg += f" 목록에서 빠진 곡 {len(removed)}개."
-                st.warning(msg + " '분석 시작'을 눌러야 반영됩니다(이미 분석한 곡은 다시 분석하지 않습니다).")
+                st.warning(msg + " '분석 시작'을 눌러야 반영돼요(이미 분석한 곡은 다시 분석하지 않아요).")
 
         st.divider()
-        st.html(ui.step_html(2, "원하는 흐름"))
+        st.html(ui.step_html(2, "어떤 흐름으로 들을까요?"))
         for mode, info in ar.MODES.items():
             sel = S.mode == mode
             with st.container(key=f"modecard_{'sel_' if sel else ''}{mode}", horizontal=True,
                               vertical_alignment="center", gap="small", wrap=False):
-                st.html(ui.mode_card_html(mode, info["label"], info["desc"], sel), width="stretch")
-                st.button("선택됨" if sel else "선택", key=f"mode_btn_{mode}", on_click=choose_mode, args=(mode,),
-                          type="primary" if sel else "secondary", disabled=sel, width=74)
+                st.html(ui.mode_curve_html(mode, info["label"], sel), width="content")
+                st.button(info["label"], key=f"mode_btn_{mode}", on_click=choose_mode, args=(mode,),
+                          type="tertiary", width="stretch", help=info["desc"])
+        st.html(f'<p class="pl-help pl-mode-desc">{ui.esc(ar.MODES[S.mode]["desc"])}</p>')
 
         st.divider()
-        st.html(ui.step_html(3, "첫 곡·마지막 곡 고정"))
+        st.html(ui.step_html(3, "처음·마지막 곡 정하기 (선택)"))
         ws = S.ws
         ids = list(ws["original"]) if ws else []
         reset_pins_if_missing()
-        title_of = (lambda t: "고정 안 함" if not t else ws["tracks"][t]["title"]) if ws else (lambda t: "고정 안 함")
+        title_of = (lambda t: "정하지 않음" if not t else ws["tracks"][t]["title"]) if ws else (lambda t: "정하지 않음")
         pc1, pc2 = st.columns(2)
-        pc1.selectbox("첫 곡", [""] + ids, format_func=title_of, key="pin_first", on_change=on_pin_change,
+        pc1.selectbox("처음 곡", [""] + ids, format_func=title_of, key="pin_first", on_change=on_pin_change,
                       disabled=not ws)
         pc2.selectbox("마지막 곡", [""] + ids, format_func=title_of, key="pin_last", on_change=on_pin_change,
                       disabled=not ws)
         pin_error = None
         if S.pin_first and S.pin_first == S.pin_last:
-            pin_error = "같은 곡을 첫 곡과 마지막 곡으로 동시에 고정할 수 없습니다. 둘 중 하나를 바꿔 주세요."
+            pin_error = "같은 곡을 처음과 마지막에 동시에 둘 수는 없어요. 둘 중 하나를 바꿔 주세요."
             st.error(pin_error)
         elif ws and len(ids) == 1 and (S.pin_first or S.pin_last):
-            st.caption("곡이 한 곡뿐이라 고정해도 순서는 같습니다.")
-        st.html('<p class="pl-help">고정한 곡은 자동 배열과 직접 수정에서 움직이지 않습니다. '
-                '풀려면 \'고정 안 함\'을 고르세요.</p>')
+            st.caption("곡이 한 곡뿐이라 순서는 그대로예요.")
+        st.html('<p class="pl-help">정한 곡은 추천할 때도, 직접 바꿀 때도 그 자리에 그대로 있어요. '
+                '풀려면 \'정하지 않음\'을 고르세요.</p>')
 
-        with st.expander("세부 설정", icon=":material/tune:"):
-            st.slider("BPM 반영 비중 (%)", 0, 100, key="bpm_weight_pct", step=5,
-                      help="흐름 점수 = BPM 정규화값 × 비중 + RMS 정규화값 × (1 − 비중)")
-            st.caption(f"BPM {S.bpm_weight_pct}% · RMS {100 - S.bpm_weight_pct}%")
-            st.slider("인접 곡 급변 완화", 0.0, 1.0, key="smooth", step=0.05,
-                      help="0이면 목표 곡선과의 차이만 봅니다. 값을 올리면 바로 이웃한 곡 사이의 흐름 점수 차이가 큰 배치를 덜 고릅니다.")
-            st.caption("기본값(50%, 0.2)만으로도 충분히 사용할 수 있습니다.")
+        with st.expander("더 세밀하게 조절 (선택)", icon=":material/tune:"):
+            st.slider("빠르기를 얼마나 중요하게 볼까요? (%)", 0, 100, key="bpm_weight_pct", step=5,
+                      help="나머지는 소리 크기로 채워요. 50%면 빠르기와 소리 크기를 똑같이 봐요.")
+            st.caption(f"빠르기 {S.bpm_weight_pct}% · 소리 크기 {100 - S.bpm_weight_pct}%")
+            st.slider("곡 사이를 얼마나 부드럽게 이을까요?", 0.0, 1.0, key="smooth", step=0.05,
+                      help="0이면 원하는 흐름 모양만 따라가요. 올릴수록 앞뒤 곡의 분위기 차이가 갑자기 커지는 순서를 피해요.")
+            st.caption("잘 모르겠으면 그대로 두셔도 충분해요.")
 
         st.divider()
         stale = bool(ws and ws["suggested"] and ws["suggested_key"] != suggestion_key(ws))
-        st.button("자동 배열 실행", type="primary", width="stretch", icon=":material/auto_awesome:",
+        st.button("추천 순서 만들기", type="primary", width="stretch", icon=":material/auto_awesome:",
                   disabled=not ws or not ws["original"] or bool(pin_error), on_click=run_arrange,
                   key="arrange_btn")
         if stale:
-            st.caption("설정이 바뀌었습니다. 다시 실행하면 새 설정으로 제안합니다(현재 편집 순서는 바뀝니다).")
+            st.caption("설정이 바뀌었어요. 다시 누르면 새 설정으로 추천해요(지금 순서는 바뀌어요).")
         elif ws and ws["original"]:
-            st.caption("같은 곡 목록과 설정이면 언제나 같은 순서가 나옵니다. 무작위 섞기가 아닙니다.")
+            st.caption("같은 곡·같은 설정이면 언제나 같은 순서가 나와요. 무작위 셔플이 아니에요.")
 
 
 def render_import_and_help():
     """JSON 불러오기와 지표 설명. 작업 공간이 비어 있어도 쓸 수 있다."""
-    with st.expander("JSON 불러오기", icon=":material/file_open:", expanded=not S.ws):
-        st.caption("PLAYLINE에서 내려받은 JSON을 올리면 곡 정보·순서·설정·버전을 복원합니다. 음원은 들어 있지 않으므로, "
-                   "재생하려면 왼쪽 1단계에 같은 음원 파일을 다시 올려 주세요. 파일 이름이 아니라 내용(SHA-256)이 "
-                   "같을 때만 연결합니다.")
-        jf = st.file_uploader("PLAYLINE JSON", type=["json"], key=f"json_{S.json_key}")
+    with st.expander("저장해 둔 작업 파일 열기", icon=":material/file_open:", expanded=not S.ws):
+        st.caption("PLAYLINE에서 받은 작업 파일(JSON)을 올리면 곡 목록·순서·설정·저장한 순서를 되살려요. "
+                   "음악 파일은 들어 있지 않아서, 들으려면 같은 음악 파일을 다시 올려 주세요. "
+                   "파일 이름이 달라도 내용이 같은 파일이면 알아서 연결해요.")
+        jf = st.file_uploader("작업 파일 (JSON)", type=["json"], key=f"json_{S.json_key}")
         if jf is not None:
             project, errs = storage.parse_project(jf.getvalue())
             if errs:
-                st.error("불러올 수 없는 파일입니다.\n\n" + "\n".join(f"- {e}" for e in errs[:12]))
+                st.error("열 수 없는 파일이에요.\n\n" + "\n".join(f"- {e}" for e in errs[:12]))
             else:
                 m = storage.match_audio(project["tracks"], audio_store) if project["data_kind"] == "measured" else None
-                kind_txt = "실제 분석값" if project["data_kind"] == "measured" else "데모 예시 데이터(가상값)"
-                st.success(f"검증 통과 · {len(project['tracks'])}곡 · {kind_txt} · 버전 {len(project['versions'])}개")
+                kind_txt = "실제 측정값" if project["data_kind"] == "measured" else "체험용 예시 값"
+                st.success(f"열 수 있어요 · {len(project['tracks'])}곡 · {kind_txt} · 저장한 순서 {len(project['versions'])}개")
                 if m:
-                    st.write(f"현재 올라온 음원과 연결: {len(m['linked'])}곡 / 누락 {len(m['missing'])}곡 / "
-                             f"JSON에 없는 파일 {len(m['extra'])}개")
+                    st.write(f"지금 올린 음악과 연결됨: {len(m['linked'])}곡 / 연결 안 됨 {len(m['missing'])}곡 / "
+                             f"작업 파일에 없는 곡 {len(m['extra'])}개")
                     if m["missing"]:
-                        st.warning("음원 미연결 (같은 파일을 올리면 연결됩니다): " +
+                        st.warning("아직 연결 안 된 곡 (같은 파일을 올리면 연결돼요): " +
                                    ", ".join(project["tracks"][t]["filename"] or t for t in m["missing"][:10]))
                     if m["extra"]:
-                        st.info("JSON에 없는 업로드 파일은 이 작업에 넣지 않습니다: " +
+                        st.info("작업 파일에 없는 곡은 이번 작업에 넣지 않아요: " +
                                 ", ".join(audio_store[s]["filename"] for s in m["extra"][:10]))
                     for tid, newname in m["renamed"]:
-                        st.caption(f"'{project['tracks'][tid]['filename']}' → 내용이 같은 '{newname}'과 연결")
+                        st.caption(f"'{project['tracks'][tid]['filename']}' → 내용이 같은 '{newname}'과 연결했어요")
                 # 설정 위젯 값을 바꿔야 하므로 위젯이 만들어지기 전에 실행되는 콜백으로 처리
-                st.button("이 JSON으로 작업 복원", type="primary", key="import_btn",
+                st.button("이 작업 이어서 하기", type="primary", key="import_btn",
                           on_click=import_project, args=(project,))
 
-    with st.expander("지표 설명", icon=":material/help:"):
+    with st.expander("용어가 궁금하다면", icon=":material/help:"):
         st.markdown("""
-- **추정 BPM** — `librosa.beat.beat_track`으로 추정한 곡 전체의 대표 템포입니다. 실제 템포의 절반이나 두 배로 잡힐 수 있어, '곡별 분석값 · BPM 해석 조정'에서 바꿀 수 있습니다.
-- **평균 RMS** — `librosa.feature.rms`로 짧은 구간마다 구한 소리 신호 크기의 평균입니다. 감정, 행복도, '신나는 정도'를 뜻하지 않습니다.
-- **흐름 점수** — 이 목록 안에서 BPM과 RMS를 각각 0~1로 정규화한 뒤 반영 비중대로 섞은 **상대적 배열 지표**입니다. 다른 목록의 점수와 비교할 수 없고, 음악 감정의 객관적 점수가 아닙니다.
-- **목표 곡선** — 고른 흐름(점차 고조 / 점차 차분 / 고조 후 차분)의 모양을 이 목록의 흐름 점수 범위에 맞춘 선입니다.
-- **목표와의 평균 절대 오차** — 각 자리의 흐름 점수와 목표 곡선 값의 차이를 평균한 값입니다.
-- **인접 곡 평균·최대 변화** — 바로 이웃한 두 곡의 흐름 점수 차이입니다.
-- **자동 배열 방법** — 고정하지 않은 곡을 흐름 점수 순으로, 남은 자리를 목표값 순으로 정렬해 짝지은 뒤, '인접 곡 급변 완화' 값만큼 이웃 곡 차이를 함께 고려해 두 곡씩 자리를 바꿔 보며 개선합니다. 무작위 요소가 없어 같은 입력이면 같은 결과가 나옵니다.
+- **빠르기 (BPM)** — 1분에 박자가 몇 번 오는지예요. 숫자가 클수록 빠른 곡이에요. 컴퓨터가 잴 때 실제보다 절반이나 두 배로 잡힐 수 있어서, '곡별 상세 정보'에서 바로잡을 수 있어요.
+- **소리 크기 (RMS)** — 곡 전체의 평균 소리 세기예요. 클수록 크고 꽉 찬 느낌으로 들려요. 슬픔·기쁨 같은 감정을 뜻하지는 않아요.
+- **흐름 점수** — 빠르기와 소리 크기를 합쳐서 0(가장 잔잔)~1(가장 강함)로 나타낸 점수예요. 지금 고른 곡들끼리 비교한 값이라, 다른 플레이리스트의 점수와는 비교할 수 없어요.
+- **원하는 흐름** — 고른 흐름(점점 신나게 / 점점 차분하게 / 올렸다가 내리기)을 선으로 그린 거예요. 그래프의 흰 점선이에요.
+- **원하는 흐름과의 차이** — 각 자리의 흐름 점수가 원하는 흐름 선에서 평균적으로 얼마나 떨어져 있는지예요. 작을수록 잘 맞아요.
+- **곡 넘어갈 때 변화** — 앞뒤 곡의 흐름 점수 차이예요. 작을수록 자연스럽게 이어져요.
+- **추천은 어떻게 만들까?** — 흐름 점수가 낮은 곡부터 원하는 흐름의 낮은 자리에 차례로 맞춰 넣고, '곡 사이 부드럽게 잇기' 값만큼 앞뒤 곡 차이도 줄이도록 자리를 바꿔 봐요. 무작위가 아니라서 같은 곡·같은 설정이면 결과도 항상 같아요.
 """)
 
 
@@ -527,17 +528,17 @@ with main:
     if not ws or not ws["original"]:
         st.html("""
 <div class="pl-empty">
-  <h3>곡을 넣거나 데모로 시작해 보세요</h3>
-  <p class="pl-note">PLAYLINE은 곡마다 추정 BPM과 평균 RMS(소리 신호 크기)를 계산해, 고른 흐름에 맞는 순서를 제안합니다.</p>
+  <h3>어떤 곡으로 플레이리스트를 만들까요?</h3>
+  <p class="pl-note">PLAYLINE은 곡마다 빠르기와 소리 크기를 재서, 원하는 분위기 흐름에 맞게 듣기 좋은 순서를 추천해 드려요.</p>
   <ol>
-    <li><b>라이브러리</b> — 왼쪽 1단계에서 미리 분석해 둔 곡을 골라 'N곡으로 시작' (파일 업로드 없음)</li>
-    <li><b>내 음악 분석</b> — '파일 올리기' 탭에 MP3·WAV를 여러 개 올리고 '분석 시작'</li>
-    <li><b>데모 체험</b> — 음원 없이 예시 데이터로 사용 흐름만 체험 (재생 불가)</li>
-    <li>흐름을 고르고 '자동 배열 실행' → 그래프 비교 → 위·아래로 직접 수정 → 버전 저장</li>
+    <li><b>라이브러리</b> — 왼쪽에서 곡을 체크하고 'N곡으로 시작' (파일 올릴 필요 없음)</li>
+    <li><b>내 음악</b> — '파일 올리기' 탭에 MP3·WAV를 올리고 '분석 시작'</li>
+    <li><b>데모 체험</b> — 예시 곡 목록으로 사용법만 둘러보기 (듣기 불가)</li>
+    <li>흐름을 고르고 '추천 순서 만들기' → 그래프로 비교 → 화살표로 직접 바꾸기 → 저장</li>
   </ol>
 </div>""")
         if ws and ws["excluded"]:
-            st.subheader("제외된 파일")
+            st.subheader("넣지 못한 파일")
             for e in ws["excluded"]:
                 st.warning(f"**{e['filename']}** — {e['message']}")
         render_import_and_help()
@@ -555,41 +556,41 @@ with main:
     # 상태 표시
     cur, sug, org = ws["current"], ws["suggested"], ws["original"]
     if sug and cur == sug:
-        state = '<span class="pl-badge dot">자동 제안 순서</span>'
+        state = '<span class="pl-badge dot">추천 순서</span>'
     elif cur == org:
-        state = '<span class="pl-badge dot">원본 순서</span>'
+        state = '<span class="pl-badge dot">원래 순서</span>'
     else:
         diff = sum(1 for a, b in zip(cur, sug or org) if a != b)
-        state = f'<span class="pl-badge edit dot">직접 수정 중 · {"제안" if sug else "원본"}과 {diff}곡 위치 다름</span>'
-    kind_badge = ('<span class="pl-badge demo dot">예시 데이터 · 가상값 (실제 측정 아님)</span>' if demo
-                  else '<span class="pl-badge real dot">실제 분석값 · librosa로 계산</span>')
+        state = f'<span class="pl-badge edit dot">직접 바꾸는 중 · {"추천" if sug else "원래"} 순서와 {diff}곡 다름</span>'
+    kind_badge = ('<span class="pl-badge demo dot">체험용 예시 값 (실제로 잰 값 아님)</span>' if demo
+                  else '<span class="pl-badge real dot">실제 곡에서 잰 값</span>')
     linked = sum(1 for t in org if has_audio(t))
     extra = f'<span class="pl-badge">{len(org)}곡</span>'
     if not demo:
-        extra += f'<span class="pl-badge">재생 가능 {linked}/{len(org)}</span>'
+        extra += f'<span class="pl-badge">들을 수 있는 곡 {linked}/{len(org)}</span>'
     if ws["from_json"]:
-        extra += '<span class="pl-badge">JSON에서 불러옴</span>'
+        extra += '<span class="pl-badge">작업 파일에서 불러옴</span>'
     st.html(f'<div class="pl-badges">{kind_badge}{state}{extra}</div>')
     if demo:
-        st.html('<div class="pl-demo-note"><b>데모 안내</b> — 곡명·아티스트는 2026-11-19에 공개 차트에서 확인했지만, '
-                'BPM·RMS는 사용 흐름을 보여주기 위한 <b>가상값</b>이며 실제 곡을 측정한 값이 아닙니다. '
-                '음원이 없어 재생할 수 없습니다. 실제 분석은 왼쪽에서 파일을 올려 주세요.</div>')
+        st.html('<div class="pl-demo-note"><b>체험 모드</b> — 곡 제목·가수는 2026-11-19 공개 차트에서 가져왔지만, '
+                '빠르기·소리 크기는 사용법을 보여 주려고 <b>임의로 넣은 값</b>이에요(실제로 잰 값 아님). '
+                '음악 파일이 없어 들을 수 없어요. 진짜 곡으로 해 보려면 왼쪽 라이브러리나 파일 올리기를 써 주세요.</div>')
 
     # ── 곡 목록 ──
-    st.html(ui.section_html("곡 순서"))
+    st.html(ui.section_html("플레이리스트"))
     b1, b2, b3 = st.columns([1, 1, 2.2])
-    b1.button("제안 순서로 복구", icon=":material/auto_awesome:", width="stretch", on_click=restore,
+    b1.button("추천 순서로 되돌리기", icon=":material/auto_awesome:", width="stretch", on_click=restore,
               args=("suggested",), disabled=not sug or cur == sug)
-    b2.button("원본 순서로 복구", icon=":material/history:", width="stretch", on_click=restore, args=("original",),
+    b2.button("원래 순서로 되돌리기", icon=":material/history:", width="stretch", on_click=restore, args=("original",),
               disabled=cur == org)
-    b3.caption("위·아래 버튼으로 순서를 바꾸면 그래프와 지표가 바로 갱신됩니다. "
-               "흐름 점수는 이 목록 안에서만 의미 있는 상대값입니다.")
+    b3.caption("화살표로 곡을 위아래로 옮기면 아래 그래프가 바로 바뀌어요. "
+               "흐름 점수는 이 목록 안에서 곡끼리 비교한 값이에요.")
 
     if S.preview_id in tracks and has_audio(S.preview_id):
         t = tracks[S.preview_id]
         a = audio_store[t["sha256"]]
         with st.container(border=True):
-            st.markdown(f"**미리듣기** · {ui.esc(t['title'])}")
+            st.markdown(f"**지금 듣는 곡** · {ui.esc(t['title'])}")
             st.audio(a["data"] if a["data"] is not None else a["path"], format=a["mime"], autoplay=False)
 
     locks = locked_positions(ws)
@@ -606,46 +607,46 @@ with main:
             st.button("재생" if playable else "",
                       key=f"play_{tid}", icon=":material/play_arrow:" if playable else ":material/music_off:",
                       disabled=not playable, on_click=lambda x=tid: setattr(S, "preview_id", x),
-                      help="이 곡을 위쪽 미리듣기 플레이어에 올립니다(자동재생 안 함)" if playable else
-                      ("데모는 음원이 없어 재생할 수 없습니다" if demo else
-                       "저작권 음원이라 공개 사이트에는 음원을 넣지 않았습니다(분석값만 제공)" if t.get("source") == "library"
-                       else "같은 음원 파일을 다시 올리면 연결됩니다"),
+                      help="위쪽 플레이어에 이 곡을 올려요(바로 재생되지는 않아요)" if playable else
+                      ("체험 모드는 음악 파일이 없어 들을 수 없어요" if demo else
+                       "저작권 때문에 이 사이트에서는 들을 수 없어요(측정값만 있어요)" if t.get("source") == "library"
+                       else "같은 음악 파일을 다시 올리면 들을 수 있어요"),
                       width="content")
             up_ok = i > 0 and i not in locks and (i - 1) not in locks
             down_ok = i < n - 1 and i not in locks and (i + 1) not in locks
             st.button("", key=f"up_{tid}", icon=":material/arrow_upward:", on_click=move_track, args=(i, -1),
-                      disabled=not up_ok, help="위로")
+                      disabled=not up_ok, help="한 칸 위로")
             st.button("", key=f"down_{tid}", icon=":material/arrow_downward:", on_click=move_track, args=(i, 1),
-                      disabled=not down_ok, help="아래로")
+                      disabled=not down_ok, help="한 칸 아래로")
 
     if ws["excluded"]:
-        with st.expander(f"제외된 파일 {len(ws['excluded'])}개", icon=":material/error:", expanded=True):
+        with st.expander(f"넣지 못한 파일 {len(ws['excluded'])}개", icon=":material/error:", expanded=True):
             for e in ws["excluded"]:
                 st.markdown(f"- **{ui.esc(e['filename'])}** — {e['message']}")
 
-    with st.expander("곡별 분석값 · BPM 해석 조정", icon=":material/table_rows:"):
-        st.caption("BPM은 곡 전체의 대표 추정값입니다. 비트 추정은 실제 템포의 절반이나 두 배로 잡히는 경우가 있어, "
-                   "들어 보고 다르면 해석 배율을 바꿀 수 있습니다. 바꿔도 음원을 다시 분석하지 않습니다.")
-        factor_label = {1.0: "추정값 그대로", 0.5: "절반으로 (½)", 2.0: "두 배로 (×2)"}
+    with st.expander("곡별 상세 정보 · 빠르기 바로잡기", icon=":material/table_rows:"):
+        st.caption("빠르기(BPM)는 1분에 박자가 몇 번 오는지를 뜻해요. 컴퓨터가 잴 때 실제보다 절반이나 두 배로 "
+                   "잡힐 때가 있어서, 들어 보고 이상하면 '빠르기 바로잡기'에서 고칠 수 있어요.")
+        factor_label = {1.0: "그대로", 0.5: "절반으로 (½)", 2.0: "두 배로 (×2)"}
         label_factor = {v: k for k, v in factor_label.items()}
         rows = []
         for tid in org:
             t = tracks[tid]
             rows.append({"곡명": t["title"], "길이": ui.fmt_duration(t.get("duration_sec")),
-                         "추정 BPM": t.get("bpm_raw"), "해석": factor_label.get(t.get("bpm_factor", 1.0)),
-                         "적용 BPM": storage.effective_bpm(t), "평균 RMS": t["rms"],
-                         "상태": ("가상값" if demo else ("BPM 추정 실패" if t.get("bpm_raw") is None else "분석 완료"))})
+                         "잰 빠르기": t.get("bpm_raw"), "빠르기 바로잡기": factor_label.get(t.get("bpm_factor", 1.0)),
+                         "쓰는 빠르기": storage.effective_bpm(t), "소리 크기": t["rms"],
+                         "상태": ("예시 값" if demo else ("빠르기 못 잼" if t.get("bpm_raw") is None else "측정 완료"))})
         edited = st.data_editor(
             pd.DataFrame(rows), key=f"bpm_editor_{ws['seq']}", hide_index=True, width="stretch",
-            disabled=["곡명", "길이", "추정 BPM", "적용 BPM", "평균 RMS", "상태"],
+            disabled=["곡명", "길이", "잰 빠르기", "쓰는 빠르기", "소리 크기", "상태"],
             column_config={
-                "해석": st.column_config.SelectboxColumn(options=list(factor_label.values()), required=True),
-                "추정 BPM": st.column_config.NumberColumn(format="%.1f"),
-                "적용 BPM": st.column_config.NumberColumn(format="%.1f"),
-                "평균 RMS": st.column_config.NumberColumn(format="%.4f"),
+                "빠르기 바로잡기": st.column_config.SelectboxColumn(options=list(factor_label.values()), required=True),
+                "잰 빠르기": st.column_config.NumberColumn(format="%.1f", help="1분당 박자 수(BPM)"),
+                "쓰는 빠르기": st.column_config.NumberColumn(format="%.1f"),
+                "소리 크기": st.column_config.NumberColumn(format="%.4f", help="곡 전체의 평균 소리 세기(RMS). 클수록 크게 들려요."),
             })
         changed = False
-        for tid, lab in zip(org, edited["해석"]):
+        for tid, lab in zip(org, edited["빠르기 바로잡기"]):
             f = label_factor.get(lab, 1.0)
             if tracks[tid]["bpm_raw"] is not None and tracks[tid].get("bpm_factor", 1.0) != f:
                 tracks[tid]["bpm_factor"] = f
@@ -654,8 +655,8 @@ with main:
             st.rerun()
 
     if demo:
-        with st.expander("데모 목록 편집 (곡 교체)", icon=":material/edit_note:"):
-            st.caption("데모 곡명과 가상값을 바꿀 수 있습니다. 이 세션에만 적용되며, 기본 목록은 data/demo_tracks.json에서 바꿉니다.")
+        with st.expander("체험용 곡 목록 바꾸기", icon=":material/edit_note:"):
+            st.caption("체험용 곡 제목과 예시 값을 바꿀 수 있어요. 지금 창에서만 적용돼요.")
             df = pd.DataFrame([{"곡명": tracks[t]["title"], "아티스트": tracks[t].get("artist"),
                                 "분류": tracks[t].get("category"), "BPM(가상)": tracks[t].get("bpm_raw"),
                                 "RMS(가상)": tracks[t]["rms"]} for t in org])
@@ -664,65 +665,63 @@ with main:
             st.button("데모 목록 적용", key="apply_demo", on_click=apply_demo_edit, args=(de,))
 
     # ── 비교 그래프 ──
-    st.html(ui.section_html("배열 전후 비교"))
+    st.html(ui.section_html("흐름 그래프로 비교하기"))
     g1, g2 = st.columns([1.4, 2])
-    metric = g1.segmented_control("그래프 값", ["흐름 점수", "BPM", "RMS"], default="흐름 점수", key="metric",
+    metric = g1.segmented_control("무엇을 볼까요?", ["흐름 점수", "빠르기", "소리 크기"], default="흐름 점수", key="metric",
                                   required=True)
     version_names = [v["name"] for v in ws["versions"] if set(v["order"]) == set(tracks)]
-    overlay = g2.selectbox("함께 볼 저장 버전", ["없음"] + version_names, key="overlay") if version_names else "없음"
+    overlay = g2.selectbox("저장한 순서도 같이 보기", ["없음"] + version_names, key="overlay") if version_names else "없음"
 
-    series = {"원본 순서": org}
+    series = {"원래 순서": org}
     if sug:
-        series["자동 제안"] = sug
+        series["추천 순서"] = sug
     if cur != sug:
-        series["직접 수정"] = cur
+        series["내가 바꾼 순서"] = cur
     if overlay != "없음":
-        series[f"버전: {overlay}"] = next(v["order"] for v in ws["versions"] if v["name"] == overlay)
+        series[f"저장: {overlay}"] = next(v["order"] for v in ws["versions"] if v["name"] == overlay)
 
     lo, hi = ar.score_range(scores)
     if metric == "흐름 점수":
         values = {t: raw[t]["score"] for t in org}
         target = list(ar.target_curve(S.mode, len(org), lo, hi))
         domain = (-0.04, 1.04)
-        label = "흐름 점수 (목록 내 상대값, 0~1)"
-    elif metric == "BPM":
+        label = "흐름 점수 (0 차분 ~ 1 신남)"
+    elif metric == "빠르기":
         values = {t: raw[t]["bpm"] for t in org}
-        target, label = None, "추정 BPM (해석 배율 적용)"
+        target, label = None, "빠르기 (BPM, 1분당 박자 수)"
         domain = ui.padded_domain(list(values.values()))
     else:
         values = {t: raw[t]["rms"] for t in org}
-        target, label = None, "평균 RMS (소리 신호 크기)"
+        target, label = None, "소리 크기 (RMS)"
         domain = ui.padded_domain(list(values.values()))
 
     st.altair_chart(ui.flow_chart(series, tracks, values, label, domain, target, raw), theme=None,
                     width="stretch")
-    notes = ["그래프는 곡마다 하나의 대표값(추정 BPM, 평균 RMS)을 재생 순서대로 이은 선입니다. "
-             "곡 내부의 변화나 실제 연속 재생 파형이 아닙니다."]
+    notes = ["점 하나가 곡 하나예요. 곡마다 대표값 하나를 재생 순서대로 이은 선이라, 곡 안에서의 변화는 보여 주지 않아요."]
     if metric == "흐름 점수":
-        notes.append(f"목표 곡선은 '{ar.MODES[S.mode]['label']}' 모양을 이 목록의 흐름 점수 범위({lo:.2f}~{hi:.2f})에 맞춘 것입니다. "
-                     "모든 계열이 같은 정규화 기준과 같은 축을 씁니다.")
-    if metric == "BPM" and any(raw[t]["bpm"] is None for t in org):
-        notes.append("BPM을 추정하지 못한 곡은 BPM 그래프에서 점이 비어 선이 끊깁니다.")
+        notes.append(f"흰 점선이 고른 흐름('{ar.MODES[S.mode]['label']}')이에요. 추천 순서가 이 선에 가까울수록 원하는 흐름에 맞아요.")
+    if metric == "빠르기" and any(raw[t]["bpm"] is None for t in org):
+        notes.append("빠르기를 못 잰 곡은 점이 비어서 선이 끊겨 보여요.")
     if demo:
-        notes.append("이 그래프의 값은 데모용 가상값입니다.")
+        notes.append("체험 모드라 그래프 값은 예시 값이에요.")
     st.html('<p class="pl-note">' + "<br>".join(ui.esc(x) for x in notes) + "</p>")
 
     # 지표
     def mrow(name, order):
         m = ar.evaluate(order, scores, S.mode)
-        return {"순서": name, "목표와의 평균 절대 오차": round(m.mae, 3), "인접 곡 평균 변화": round(m.mean_jump, 3),
-                "인접 곡 최대 변화": round(m.max_jump, 3)}
+        return {"순서": name, "원하는 흐름과의 차이": round(m.mae, 3), "곡 넘어갈 때 평균 변화": round(m.mean_jump, 3),
+                "가장 크게 튀는 곳": round(m.max_jump, 3)}
 
-    mrows = [mrow("원본 순서", org)] + ([mrow("자동 제안", sug)] if sug else []) + \
-        ([mrow("직접 수정(현재)", cur)] if cur != sug else [])
+    mrows = [mrow("원래 순서", org)] + ([mrow("추천 순서", sug)] if sug else []) + \
+        ([mrow("내가 바꾼 순서", cur)] if cur != sug else [])
     st.dataframe(pd.DataFrame(mrows), hide_index=True, width="stretch")
-    st.caption("지표는 흐름 점수 기준이며 낮을수록 목표 곡선에 가깝거나 이웃 곡 사이 변화가 작다는 뜻입니다. "
-               "수치가 낮아졌다고 실제로 듣기 좋아졌다는 보장은 없으니 직접 들어 보고 판단해 주세요.")
+    st.caption("숫자가 작을수록 원하는 흐름에 가깝고, 곡이 넘어갈 때 덜 튀어요. "
+               "숫자는 참고용이라, 최종 판단은 직접 들어 보고 해 주세요.")
 
     # ── 버전 저장·비교 ──
-    st.html(ui.section_html("버전 저장 · 비교"))
+    st.html(ui.section_html("마음에 드는 순서 저장하기"))
     vc1, vc2 = st.columns([3, 1], vertical_alignment="bottom")
-    vname = vc1.text_input("버전 이름", key="version_name", placeholder="예: 퇴근길 고조형", max_chars=40)
+    vname = vc1.text_input("이름 붙이기", key="version_name", placeholder="예: 퇴근길 고조형", max_chars=40)
     vc2.button("현재 순서 저장", icon=":material/bookmark_add:", width="stretch", on_click=save_version,
                args=(vname,))
     if ws["versions"]:
@@ -731,37 +730,37 @@ with main:
             ok = set(v["order"]) == set(tracks)
             m = ar.evaluate(v["order"], scores, S.mode) if ok else None
             vrows.append({"이름": v["name"], "저장 시각": v["created_at"].replace("T", " "),
-                          "저장 당시 흐름": ar.MODES[v["settings"]["mode"]]["label"],
-                          "목표 오차(현재 모드)": None if m is None else round(m.mae, 3),
-                          "인접 평균 변화": None if m is None else round(m.mean_jump, 3),
-                          "상태": ("현재 순서와 같음" if ok and v["order"] == cur else
-                                 ("불러오기 가능" if ok else "곡 구성이 달라 불러올 수 없음"))})
+                          "저장할 때 흐름": ar.MODES[v["settings"]["mode"]]["label"],
+                          "원하는 흐름과의 차이": None if m is None else round(m.mae, 3),
+                          "곡 넘어갈 때 변화": None if m is None else round(m.mean_jump, 3),
+                          "상태": ("지금 순서와 같음" if ok and v["order"] == cur else
+                                 ("불러올 수 있음" if ok else "곡 목록이 달라 불러올 수 없음"))})
         st.dataframe(pd.DataFrame(vrows), hide_index=True, width="stretch")
         vs1, vs2, vs3 = st.columns([2, 1, 1], vertical_alignment="bottom")
-        pick = vs1.selectbox("버전 선택", range(len(ws["versions"])), format_func=lambda i: ws["versions"][i]["name"],
+        pick = vs1.selectbox("저장한 순서", range(len(ws["versions"])), format_func=lambda i: ws["versions"][i]["name"],
                              key="version_pick")
         pick_ok = pick is not None and pick < len(ws["versions"]) and \
             set(ws["versions"][pick]["order"]) == set(tracks)
         vs2.button("불러오기", width="stretch", on_click=load_version, args=(pick,), disabled=not pick_ok)
         vs3.button("삭제", width="stretch", on_click=delete_version, args=(pick,), disabled=pick is None)
-        st.caption("버전은 이 브라우저 세션에만 저장됩니다. 창을 닫거나 새로고침하면 사라지므로 JSON으로 내려받아 두세요.")
+        st.caption("저장한 순서는 지금 창에만 남아요. 창을 닫거나 새로고침하면 사라지니, 아래에서 작업 파일로 받아 두세요.")
     else:
-        st.caption("아직 저장한 버전이 없습니다. 마음에 드는 순서에 이름을 붙여 저장하면 나중에 비교·복구할 수 있습니다.")
+        st.caption("아직 저장한 순서가 없어요. 마음에 드는 순서에 이름을 붙여 저장하면 나중에 비교하거나 되돌릴 수 있어요.")
 
     # ── 내보내기·불러오기 ──
-    st.html(ui.section_html("내보내기 · 불러오기"))
+    st.html(ui.section_html("파일로 받기"))
     e1, e2 = st.columns(2)
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
-    e1.download_button("CSV 다운로드 (현재 순서)", data=storage.to_csv(cur, tracks, scores, ws["kind"]),
+    e1.download_button("곡 순서 표 받기 (엑셀용 CSV)", data=storage.to_csv(cur, tracks, scores, ws["kind"]),
                        file_name=f"playline_{stamp}.csv", mime="text/csv", icon=":material/table_view:",
                        width="stretch")
     e2.download_button(
-        "JSON 다운로드 (전체 작업)", icon=":material/data_object:", width="stretch",
+        "작업 파일 받기 (나중에 이어서 하기)", icon=":material/data_object:", width="stretch",
         data=storage.to_json(tracks=tracks, original=org, suggested=sug, current=cur, settings=settings(),
                              versions=ws["versions"], data_kind=ws["kind"],
                              excluded=[{k: e.get(k) for k in ("filename", "status", "message")} for e in ws["excluded"]]),
         file_name=f"playline_{stamp}.json", mime="application/json")
-    st.caption("CSV: 순서·곡명·길이·BPM·RMS. JSON: 곡 식별 정보(파일명·SHA-256)·분석값·순서·설정·버전. "
+    st.caption("곡 순서 표: 순서·곡명·길이·빠르기·소리 크기. 작업 파일: 곡 목록·측정값·순서·설정·저장한 순서 (이 사이트에서 다시 열 수 있어요). "
                + storage.AUDIO_NOT_INCLUDED)
 
     render_import_and_help()

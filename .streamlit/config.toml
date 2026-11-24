@@ -10,18 +10,19 @@ headless = true
 gatherUsageStats = false
 
 [theme]
-base = "light"
-primaryColor = "#31594D"
-backgroundColor = "#F5F1E8"
-secondaryBackgroundColor = "#EDE7DA"
-textColor = "#252A29"
-borderColor = "#DDD6C9"
-linkColor = "#31594D"
+# 짙은 밤하늘 배경 + 홀로그램 CD 포인트 색
+base = "dark"
+primaryColor = "#6C7BFF"
+backgroundColor = "#07080C"
+secondaryBackgroundColor = "#141722"
+textColor = "#EEF0F5"
+borderColor = "#2A2F3D"
+linkColor = "#7CF7FF"
 showWidgetBorder = true
-baseRadius = "8px"
-buttonRadius = "8px"
+baseRadius = "12px"
+buttonRadius = "999px"
 font = "Noto Sans KR:https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap, sans-serif"
 headingFont = "Noto Sans KR, sans-serif"
 codeFont = "monospace"
 baseFontSize = 15
-chartCategoricalColors = ["#31594D", "#CB765D", "#9A9184", "#252A29"]
+chartCategoricalColors = ["#7CF7FF", "#FF7AD9", "#A98BFF", "#FFC46B"]

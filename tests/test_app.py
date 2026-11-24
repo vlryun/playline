@@ -78,12 +78,12 @@ class AppFlowTest(unittest.TestCase):
 
         # 제안 순서로 복구
         at.button(key="hero_demo")  # 존재 확인
-        restore = [b for b in at.button if b.label == "제안 순서로 복구"][0]
+        restore = [b for b in at.button if b.label == "추천 순서로 되돌리기"][0]
         restore.click().run()
         self.assertEqual(at.session_state.ws["current"], arc1)
 
         # 원본 복구
-        [b for b in at.button if b.label == "원본 순서로 복구"][0].click().run()
+        [b for b in at.button if b.label == "원래 순서로 되돌리기"][0].click().run()
         self.assertEqual(at.session_state.ws["current"], at.session_state.ws["original"])
 
     def test_pins_and_lock(self):

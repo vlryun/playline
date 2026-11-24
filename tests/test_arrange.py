@@ -170,3 +170,26 @@ class ArrangeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModeShapeTest(unittest.TestCase):
+    def test_all_modes_in_range_and_distinct(self):
+        shapes = {m: target_shape(m, 21) for m in MODES}
+        self.assertGreaterEqual(len(MODES), 5)
+        for m, s in shapes.items():
+            self.assertTrue(np.all((s >= -1e-9) & (s <= 1 + 1e-9)), m)
+        keys = list(shapes)
+        for i in range(len(keys)):
+            for j in range(i + 1, len(keys)):
+                self.assertFalse(np.allclose(shapes[keys[i]], shapes[keys[j]]), (keys[i], keys[j]))
+
+    def test_shape_features(self):
+        w = target_shape("wave", 41)
+        self.assertAlmostEqual(w[10], 1.0)   # 25% 지점 첫 정점
+        self.assertAlmostEqual(w[20], 0.0)   # 50% 지점 골
+        v = target_shape("valley", 21)
+        self.assertEqual(int(np.argmin(v)), 10)
+        f = target_shape("finale", 11)
+        self.assertLess(f[7], 0.4)
+        self.assertEqual(f[-1], 1.0)
+        self.assertEqual(int(np.argmax(target_shape("early", 21))), 4)
