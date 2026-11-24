@@ -50,17 +50,29 @@ S = st.session_state
 
 
 @st.cache_data(show_spinner=False)
-def library_entries() -> list[dict]:
+def library_entries(stamp: float) -> list[dict]:
+    # stamp(파일 수정 시각)가 바뀌면 다시 읽는다: 배포 서버는 data 파일만 바뀌면 재시작하지 않기 때문
     return library.load_library()
 
 
-LIB = library_entries()
+def library_stamp() -> float:
+    try:
+        return library.LIBRARY_PATH.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+LIB = library_entries(library_stamp())
 LIB_AUDIO = library.audio_files(LIB)   # 서버에 음원 파일이 있는 라이브러리 곡 (sha256 -> 정보)
 
 
 @st.cache_data(show_spinner=False)
+def _library_covers(stamp: float) -> dict[str, str]:
+    return library.cover_uris(library.load_library())
+
+
 def library_covers() -> dict[str, str]:
-    return library.cover_uris(LIB)
+    return _library_covers(library_stamp())
 
 
 def cover_for(track: dict) -> str | None:
